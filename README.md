@@ -30,6 +30,7 @@ bun run verify
 ```
 
 `verify` 包含构建、类型检查、格式、lint、测试和离线打包消费者检查。
+包检查先为隔离消费者解析依赖，再清空安装目录验证离线重装；首次运行需要访问包注册表。
 测试需要系统 `openssl` 和 `tar`；格式化使用 `bun run format`。
 `bun run perf:baseline` 输出本机回环基线，不代表生产容量或云端费用。
 

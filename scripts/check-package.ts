@@ -47,8 +47,18 @@ try {
       overrides: { '@cherrystudio/relay-protocol': dependencies['@cherrystudio/relay-protocol'] },
     }),
   )
-  // Use the already installed public dependency cache; no workspace symlinks or network/private registry access.
-  await run([process.execPath, 'install', '--offline', '--ignore-scripts', '--no-progress'])
+  // Frozen workspace installs can cache archives without the manifests a new consumer needs.
+  // Resolve once, then verify a fresh offline install of the locked dependency graph.
+  await run([process.execPath, 'install', '--ignore-scripts', '--no-progress'])
+  await rm(join(consumer, 'node_modules'), { recursive: true, force: true })
+  await run([
+    process.execPath,
+    'install',
+    '--offline',
+    '--frozen-lockfile',
+    '--ignore-scripts',
+    '--no-progress',
+  ])
   await Bun.write(
     join(consumer, 'index.ts'),
     `
