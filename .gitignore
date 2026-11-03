@@ -1,0 +1,7 @@
+.context/
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.tgz
+.DS_Store

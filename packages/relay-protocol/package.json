@@ -1,0 +1,19 @@
+{
+  "name": "@cherrystudio/relay-protocol",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Portable Cherry Relay framing and proof contracts.",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "vectors",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@cherrystudio/relay-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Bounded MessageStream adapter for an admitted Cherry Relay data connection.",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@cherrystudio/relay-protocol": "workspace:*",
+    "@libp2p/interface": "3.3.0",
+    "@libp2p/utils": "7.4.1"
+  }
+}

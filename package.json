@@ -1,0 +1,33 @@
+{
+  "name": "cherry-relay",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.4",
+  "engines": {
+    "bun": "1.4.4"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "start": "bun src/bun/main.ts",
+    "build": "bun scripts/build-packages.ts",
+    "typecheck": "bun check --no-script -p packages/relay-protocol/tsconfig.json && bun check --no-script -p packages/relay-client/tsconfig.json && bun check --no-script -p tsconfig.core.json && bun check --no-script -p tsconfig.runtime.json && bun check --no-script -p tsconfig.tools.json",
+    "lint": "biome lint src packages scripts tests && bun scripts/check-imports.ts",
+    "format": "bun fmt src packages scripts tests *.json bunfig.toml .github",
+    "format:check": "bun fmt --check src packages scripts tests *.json bunfig.toml .github",
+    "test": "bun test ./packages ./tests --timeout 15000",
+    "check:packages": "bun scripts/check-package.ts",
+    "perf:baseline": "bun tests/performance/baseline.ts",
+    "verify": "bun run build && bun run typecheck && bun run format:check && bun run lint && bun run test && bun run check:packages"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@cherrystudio/relay-client": "workspace:*",
+    "@cherrystudio/relay-protocol": "workspace:*",
+    "@cherrystudio/remote-transport": "0.2.5",
+    "@libp2p/logger": "6.2.16",
+    "@types/bun": "1.4.4",
+    "typescript": "npm:@typescript/typescript6@6.0.2"
+  }
+}
