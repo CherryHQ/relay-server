@@ -1,0 +1,4 @@
+services:
+  relay:
+    ports:
+      - '127.0.0.1:${RELAY_LOCAL_PORT:-8787}:8787'

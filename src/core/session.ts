@@ -2,13 +2,23 @@ import {
   type CloseReason,
   decodeFrame,
   encodeFrame,
+  parseRelayReady,
   RelayProtocolError,
   type RelayRole,
   type RelaySelection,
 } from '@cherrystudio/relay-protocol'
 
-import { ForwardingDirection } from './forwarding.js'
+import { ForwardingDirection, type ForwardingSnapshot } from './forwarding.js'
 import type { RelayPeer } from './ports.js'
+
+export interface SessionSnapshot {
+  readonly state: 'waiting' | 'ready'
+  readonly selection: RelaySelection
+  readonly expiresAt: number
+  readonly hasDesktop: boolean
+  readonly started: readonly RelayRole[]
+  readonly directions: Readonly<Record<RelayRole, ForwardingSnapshot>>
+}
 
 export class RelaySession {
   state: 'waiting' | 'ready' | 'closed' = 'waiting'
@@ -88,6 +98,66 @@ export class RelaySession {
       Object.values(this.directions).some((direction) => direction.stalled(now))
     )
       this.close('STALLED')
+  }
+
+  get nextDeadline(): number | undefined {
+    if (this.state === 'waiting') return this.expiresAt
+    const deadlines = Object.values(this.directions).flatMap((direction) => direction.nextDeadline ?? [])
+    return deadlines.length ? Math.min(...deadlines) : undefined
+  }
+
+  snapshot(): SessionSnapshot {
+    if (this.state === 'closed') throw new RelayProtocolError('Cannot snapshot a closed session')
+    return {
+      state: this.state,
+      selection: this.selection,
+      expiresAt: this.expiresAt,
+      hasDesktop: this.peers.desktop !== undefined,
+      started: [...this.started],
+      directions: { app: this.directions.app.snapshot(), desktop: this.directions.desktop.snapshot() },
+    }
+  }
+
+  static restore(
+    state: SessionSnapshot,
+    app: RelayPeer,
+    desktop: RelayPeer | undefined,
+    stallMs: number,
+    onClose: (reason: CloseReason) => void,
+  ): RelaySession {
+    const {
+      v: _version,
+      type: _type,
+      ...selection
+    } = parseRelayReady(
+      JSON.stringify({
+        v: 1,
+        type: 'ready',
+        ...state.selection,
+      }),
+    )
+    if (
+      !['waiting', 'ready'].includes(state.state) ||
+      !Number.isFinite(state.expiresAt) ||
+      state.hasDesktop !== Boolean(desktop) ||
+      new Set(state.started).size !== state.started.length ||
+      state.started.some((role) => role !== 'app' && role !== 'desktop') ||
+      (state.started.includes('desktop') && !desktop) ||
+      (state.state === 'ready') !== (state.started.length === 2)
+    )
+      throw new RelayProtocolError('Invalid session snapshot')
+    const session = new RelaySession(selection, state.expiresAt, app, stallMs, onClose)
+    if (desktop) session.peers.desktop = desktop
+    for (const role of state.started) session.started.add(role)
+    for (const role of ['app', 'desktop'] as const) {
+      const direction = state.directions[role]
+      if (state.state === 'waiting' && (direction.receivedSeq !== 0n || direction.ackedSeq !== 0n)) {
+        throw new RelayProtocolError('Waiting session contains DATA')
+      }
+      session.directions[role] = ForwardingDirection.restore(selection.limits, stallMs, direction)
+    }
+    session.state = state.state
+    return session
   }
 
   close(reason: CloseReason): void {

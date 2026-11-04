@@ -71,6 +71,26 @@ afterEach(() => {
   for (const controller of controllers.splice(0)) controller.abort()
 })
 
+test('transport receipts during rendezvous are answered without accepting a stream early', async () => {
+  const h = fixture()
+  const connecting = connectRelayStream('01'.repeat(32), h.options)
+  h.socket.open()
+  const nonce = 'ab'.repeat(16)
+  h.socket.receive(JSON.stringify({ v: 1, type: 'probe', nonce }))
+  expect(JSON.parse(h.socket.sent[1] as string)).toEqual({ v: 1, type: 'probe_ack', nonce })
+  h.socket.receive(JSON.stringify(pending))
+  h.socket.receive(JSON.stringify(ready))
+  const stream = await connecting
+  h.socket.receive(JSON.stringify({ v: 1, type: 'probe', nonce: 'cd'.repeat(16) }))
+  expect(JSON.parse(h.socket.sent.at(-1) as string)).toEqual({
+    v: 1,
+    type: 'probe_ack',
+    nonce: 'cd'.repeat(16),
+  })
+  expect(stream.stats.sentBytes).toBe(0n)
+  expect(stream.stats.receivedBytes).toBe(0n)
+})
+
 test('connect installs the stream synchronously before pipelined DATA and keeps cancellation ownership', async () => {
   const h = fixture()
   const connected = connectRelayStream('01'.repeat(32), h.options)

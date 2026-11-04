@@ -29,6 +29,20 @@ afterEach(() => {
 })
 
 describe('RelayStream flow control', () => {
+  test('transport receipts never release DATA credit or reach the application', () => {
+    const { socket, stream } = create(undefined, { limits: small })
+    stream.send(new Uint8Array(8))
+    socket.inject(JSON.stringify({ v: 1, type: 'probe', nonce: 'ab'.repeat(16) }))
+    expect(stream.stats.unacknowledgedBytes).toBe(8n)
+    expect(stream.stats.receivedBytes).toBe(0n)
+    expect(JSON.parse(socket.controls[0] as string)).toEqual({
+      v: 1,
+      type: 'probe_ack',
+      nonce: 'ab'.repeat(16),
+    })
+    socket.inject(JSON.stringify({ v: 1, type: 'probe', nonce: 'invalid' }))
+    expect(stream.status).toBe('aborted')
+  })
   test('each drain wait needs new credit; a timer tick cannot invent credit', async () => {
     const { socket, stream } = create(undefined, { limits: small })
     for (let cycle = 1; cycle <= 2; cycle++) {

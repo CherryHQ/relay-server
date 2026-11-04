@@ -17,6 +17,8 @@ export {
 export type { RelayLimits } from './limits.js'
 export { bytesToHex, canonicalRelayOrigin, encodeProofTranscript, payloadBytes } from './proof.js'
 export type { ProofContext, ProofEnvelope } from './proof.js'
+export { parseRelayProbe } from './probe.js'
+export type { RelayProbe } from './probe.js'
 export {
   maxRendezvousBytes,
   parseClientControl,

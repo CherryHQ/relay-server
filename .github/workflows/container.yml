@@ -1,0 +1,33 @@
+name: Container
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: docker build -f deploy/docker/Dockerfile -t cherry-relay:check .
+      - run: bun run check:container cherry-relay:check
+      - name: Validate deployment configurations
+        env:
+          RELAY_DOMAIN: relay.example.com
+          ACME_EMAIL: ops@example.com
+          TUNNEL_TOKEN_FILE: /tmp/relay-test-token
+        run: |
+          touch "$TUNNEL_TOKEN_FILE"
+          docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.local.yml config --quiet
+          docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.caddy.yml config --quiet
+          docker compose -f deploy/docker/compose.yml -f deploy/cloudflare-tunnel/compose.yml config --quiet
+          docker compose -f deploy/docker/compose.yml -f deploy/docker/compose.caddy.yml run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile

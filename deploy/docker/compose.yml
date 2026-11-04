@@ -1,0 +1,29 @@
+services:
+  relay:
+    image: ${RELAY_IMAGE:-cherry-relay:local}
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: ./runtime.env
+        required: false
+    environment:
+      RELAY_HOST: 0.0.0.0
+      RELAY_PORT: '8787'
+    expose:
+      - '8787'
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: ${RELAY_MEMORY_LIMIT:-512m}
+    cpus: ${RELAY_CPUS:-1.0}
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

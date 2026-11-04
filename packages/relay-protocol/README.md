@@ -17,6 +17,10 @@ parseClientControl / parseServerControl 严格校验 4 KiB 以内的会合 JSON�
 包含 listen/connect/attach/start/cancel 及对应响应，见[会合协议](../../docs/runtime.md#2-最小会合)。
 会话生命周期、票据生成与消费、限流和实际网络行为由 runtime 负责。
 
+`parseRelayProbe` 单独校验可选的 `{v:1,type:"probe"|"probe_ack",nonce}` 文本收包回执。
+nonce 为 128-bit 随机值的小写 hex，只用于验证 socket 输出已被读取，不是 DATA ACK 或业务认证。
+Cloudflare 适配器使用该扩展约束平台发送缓冲；二进制帧格式不变，Bun runtime 不要求该扩展。
+
 可选证明编码覆盖 origin、purpose、HTTP 方法/路径、target、session、role、peer、challenge、nonce
 和原始 JSON 的 SHA-256；每项 UTF-8 字节前加 uint32 大端长度，空 session 仍保留零长度字段。
 哈希和 Ed25519 签名由调用方注入。vectors 提供固定帧、transcript 和签名验证向量。

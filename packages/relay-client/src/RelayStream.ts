@@ -14,6 +14,7 @@ import type { AbortOptions, Logger } from '@libp2p/interface'
 import { AbstractMessageStream } from '@libp2p/utils'
 
 import type { RelaySocket } from './ports.js'
+import { respondToRelayProbe } from './probe.js'
 
 type StreamData = Parameters<AbstractMessageStream['send']>[0]
 const queueBytes = 1024 * 1024
@@ -193,6 +194,7 @@ export class RelayStream extends AbstractMessageStream {
     if (this.finished) return
     try {
       const data = event.data
+      if (typeof data === 'string' && respondToRelayProbe(this.socket, data)) return
       const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
       if (!(bytes instanceof Uint8Array)) throw new RelayProtocolError('Expected a binary relay frame')
       const frame = decodeFrame(bytes)

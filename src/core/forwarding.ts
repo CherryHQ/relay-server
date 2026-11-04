@@ -1,11 +1,17 @@
 import {
   type AckFrame,
   type DataFrame,
+  maxUint64,
   type RelayLimits,
   RelayProtocolError,
 } from '@cherrystudio/relay-protocol'
 
 import type { NativeSender } from './ports.js'
+
+export interface RateSnapshot {
+  readonly tokens: number
+  readonly updatedAt: number
+}
 
 /** One second of burst capacity; no per-account state or persistent usage ledger. */
 export class RateBudget {
@@ -30,6 +36,33 @@ export class RateBudget {
     this.tokens -= amount
     return true
   }
+
+  snapshot(): RateSnapshot {
+    return { tokens: this.tokens, updatedAt: this.updatedAt }
+  }
+
+  static restore(perSecond: number, snapshot: RateSnapshot): RateBudget {
+    if (
+      !Number.isFinite(snapshot.tokens) ||
+      snapshot.tokens < 0 ||
+      snapshot.tokens > perSecond ||
+      !Number.isFinite(snapshot.updatedAt)
+    )
+      throw new RelayProtocolError('Invalid rate snapshot')
+    const result = new RateBudget(perSecond, snapshot.updatedAt)
+    result.tokens = snapshot.tokens
+    return result
+  }
+}
+
+export interface ForwardingSnapshot {
+  readonly receivedSeq: bigint
+  readonly receivedBytes: bigint
+  readonly forwardedSeq: bigint
+  readonly ackedSeq: bigint
+  readonly ackedBytes: bigint
+  readonly boundaries: readonly (readonly [bigint, bigint])[]
+  readonly deadline: number | undefined
 }
 
 /** Metadata only. The host owns bounded byte queues; opaque DATA is never replayed. */
@@ -87,6 +120,73 @@ export class ForwardingDirection {
 
   stalled(now: number): boolean {
     return this.deadline !== undefined && now >= this.deadline
+  }
+
+  get nextDeadline(): number | undefined {
+    return this.deadline
+  }
+
+  snapshot(): ForwardingSnapshot {
+    return {
+      receivedSeq: this.receivedSeq,
+      receivedBytes: this.receivedBytes,
+      forwardedSeq: this.forwardedSeq,
+      ackedSeq: this.ackedSeq,
+      ackedBytes: this.ackedBytes,
+      boundaries: [...this.boundaries],
+      deadline: this.deadline,
+    }
+  }
+
+  /** Metadata only: callers must retain the same native sockets, never replay queued ciphertext. */
+  static restore(limits: RelayLimits, stallMs: number, state: ForwardingSnapshot): ForwardingDirection {
+    const counters = [
+      state.receivedSeq,
+      state.receivedBytes,
+      state.forwardedSeq,
+      state.ackedSeq,
+      state.ackedBytes,
+    ]
+    if (
+      counters.some((value) => typeof value !== 'bigint' || value < 0n || value > maxUint64) ||
+      state.ackedSeq > state.forwardedSeq ||
+      state.forwardedSeq !== state.receivedSeq ||
+      state.ackedBytes > state.receivedBytes ||
+      (state.receivedSeq === 0n && state.receivedBytes !== 0n) ||
+      (state.ackedSeq === 0n && state.ackedBytes !== 0n) ||
+      state.receivedBytes - state.ackedBytes > BigInt(limits.windowBytes) ||
+      state.boundaries.length > limits.maxInFlightFrames ||
+      state.boundaries.length > 0 !== (state.deadline !== undefined) ||
+      (state.deadline !== undefined && !Number.isFinite(state.deadline))
+    )
+      throw new RelayProtocolError('Invalid forwarding snapshot')
+    const result = new ForwardingDirection(limits, stallMs)
+    let seq = state.ackedSeq
+    let bytes = state.ackedBytes
+    for (const [nextSeq, nextBytes] of state.boundaries) {
+      if (
+        typeof nextSeq !== 'bigint' ||
+        typeof nextBytes !== 'bigint' ||
+        nextSeq !== seq + 1n ||
+        nextBytes <= bytes ||
+        nextBytes - bytes > BigInt(limits.maxFrameBytes)
+      ) {
+        throw new RelayProtocolError('Invalid forwarding boundary')
+      }
+      result.boundaries.set(nextSeq, nextBytes)
+      seq = nextSeq
+      bytes = nextBytes
+    }
+    if (seq !== state.receivedSeq || bytes !== state.receivedBytes) {
+      throw new RelayProtocolError('Incomplete forwarding snapshot')
+    }
+    result.receivedSeq = state.receivedSeq
+    result.receivedBytes = state.receivedBytes
+    result.forwardedSeq = state.forwardedSeq
+    result.ackedSeq = state.ackedSeq
+    result.ackedBytes = state.ackedBytes
+    result.deadline = state.deadline
+    return result
   }
 
   clear(): void {

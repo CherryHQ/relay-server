@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 
-import { RelayStream } from '@cherrystudio/relay-client'
+import { RelayStream, respondToRelayProbe } from '@cherrystudio/relay-client'
 import {
   assertReadyMatches,
   type ClientControl,
@@ -27,6 +27,7 @@ export class RawPeer {
   readonly closed: Promise<CloseEvent>
   private readonly messages: (string | Uint8Array)[] = []
   private capture = true
+  autoReceipts = true
 
   constructor(url: string, ca?: string) {
     this.socket = new WebSocket(url, { perMessageDeflate: false, ...(ca ? { tls: { ca } } : {}) })
@@ -40,6 +41,13 @@ export class RawPeer {
     })
     this.closed = new Promise((resolve) => this.socket.addEventListener('close', resolve, { once: true }))
     this.socket.addEventListener('message', (event) => {
+      if (
+        this.capture &&
+        this.autoReceipts &&
+        typeof event.data === 'string' &&
+        respondToRelayProbe(this.socket, event.data)
+      )
+        return
       if (this.capture)
         this.messages.push(
           typeof event.data === 'string' ? event.data : new Uint8Array(event.data as ArrayBuffer),

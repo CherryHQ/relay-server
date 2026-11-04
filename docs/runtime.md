@@ -1,7 +1,8 @@
 # Bun Relay 运行与会合协议
 
 日期：2026-11-04。单实例 runtime 已实现并通过本地真实 socket 验证。
-桌面/App 产品接入、容器与云部署仍待交付，见[R2 实现记录](r2-implementation-status.md)。
+桌面/App 接入代码已实现，原生验收仍待完成；容器和代理配置见[部署记录](deployment-status.md)。
+本文描述 Bun runtime；Workers + DO 的休眠、alarm 与收包回执见[独立部署说明](../deploy/cloudflare/README.md)。
 
 ## 1. 启动
 

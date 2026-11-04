@@ -7,15 +7,17 @@ export class TestSocket implements RelaySocket {
   bufferedAmount = 0
   sendResult: undefined | number = undefined
   readonly sent: Uint8Array[] = []
+  readonly controls: string[] = []
   closes = 0
   peer: TestSocket | undefined
   private readonly listeners = new Map<string, Set<(event: { data: unknown }) => void>>()
 
-  send(bytes: Uint8Array): undefined | number {
+  send(bytes: string | Uint8Array): undefined | number {
     if (this.readyState !== 1) throw new Error('Socket closed')
     if (this.sendResult === 0) return 0
     const copy = bytes.slice()
-    this.sent.push(copy)
+    if (typeof copy === 'string') this.controls.push(copy)
+    else this.sent.push(copy)
     queueMicrotask(() => this.peer?.inject(copy))
     return this.sendResult
   }

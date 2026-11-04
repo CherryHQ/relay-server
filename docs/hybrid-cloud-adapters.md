@@ -46,8 +46,19 @@
 取消/关闭、重复接入、实例退出及客户端重连。消息容量须覆盖 64 KiB DATA 加 24 字节头。
 无法约束内部缓冲或保证及时关闭的平台，保持未支持状态。
 
-Cloudflare、Vercel 或其他 vendor 只在确定采用后检查当前能力、实现 adapter 并做真实部署测试；
-本方案不预先承诺其数据面可用，也不要求首版实现全部适配器。
+当前提供 Docker/Caddy 与 Cloudflare Tunnel 入口，后者仍使用同一个常驻 Bun runtime，
+不是 Workers/Durable Objects 适配。验证范围见[部署记录](deployment-status.md)。
+
+另已实现独立的 [Workers + Durable Objects 适配器](../deploy/cloudflare/README.md)：
+每部署一个固定 DO，多个 target/session 共用；WebSocket attachment 恢复角色、票据消费、计数及预算，
+alarm 负责实际存在的期限，空闲时不常驻定时扫描。继续使用原协议地址，不按 target 自动分片。
+没有原生缓冲查询时使用随机收包回执释放发送预算，DATA ACK 不承担这个职责；两端需要新版客户端。
+本地 workerd 休眠恢复测试与打包分别验证，正式云端容量、费用和平台终止行为仍待验收。
+
+Vercel 按当前决定暂缓。2026-11-04 核对的[官方 WebSocket 文档](https://vercel.com/docs/functions/websockets)
+已支持 WebSocket，但连接可能分散到不同 Function 实例，并受函数时长限制；其 Bun 适配还缺少
+`drain` 回调和 `send() === -1` 语义，不能直接复用本 runtime 的同实例会合与背压假设。
+未来若重启此项，先选择明确的常驻/协调方式并验证资源限制；不为此提前引入数据库或 broker。
 
 测试记录连接驻留、实际出口流量、内部转发和平台调用次数。
 数据热路径不远程查询账号或数据库；如增加 broker/代理跳转，需要额外说明它解决的问题、延迟与成本。

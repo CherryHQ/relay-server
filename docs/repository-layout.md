@@ -1,6 +1,6 @@
 # 仓库文件组织
 
-日期：2026-11-04。记录现有包、最小 runtime 和下一批部署文件的职责。
+日期：2026-11-04。记录现有包、最小 runtime 和部署文件的职责。
 首版范围见[架构](architecture.md)，不预建账号、管理后台、数据库或所有 vendor 的模块。
 
 ## 1. 已有文件
@@ -23,17 +23,28 @@ relay-server/
 ├── src/
 │   ├── config.ts
 │   ├── core/                    # session、forwarding、ports
-│   └── bun/                     # runtime、main
+│   ├── bun/                     # runtime、main
+│   └── cloudflare/              # Worker/DO 入口、恢复、回执预算和平台限制
 ├── scripts/
 │   ├── build-packages.ts
+│   ├── build-runtime.ts          # 无 npm 运行依赖的服务 bundle
 │   ├── check-imports.ts
-│   └── check-package.ts
+│   ├── check-package.ts
+│   ├── smoke-relay.ts            # 指定入口的健康、会合、双向二进制验证
+│   ├── check-container.ts        # 非 root、只读、SIGTERM、重启验证
+│   ├── check-cloudflare.ts       # Bun 客户端 + workerd 休眠/Noise 验证
+│   └── cloudflare-host.mjs       # 仅供测试的 Node/Miniflare 驱动
+├── deploy/
+│   ├── docker/                   # Dockerfile、Compose、Caddy、环境示例及说明
+│   ├── cloudflare-tunnel/        # connector Compose、secret 挂载及说明
+│   └── cloudflare/               # Workers/DO Wrangler 配置与部署说明
 ├── tests/
 │   ├── core/                     # 会话、计数、预算和配置
 │   ├── bun/                      # 真实 runtime、WSS/Noise、入口和故障用例
+│   ├── cloudflare/               # 状态清空、票据/流控/预算恢复及测试专用 Worker
 │   ├── harness/                  # loopback WSS + 真实 Noise；仅供测试
 │   └── performance/              # 本机诊断基线
-├── .github/workflows/check.yml
+├── .github/workflows/            # 代码/包验证和容器验证
 └── docs/
 ```
 
@@ -58,7 +69,9 @@ relay-server/
 共享核心定义会话规则，host 持有实际连接并保证同一会话的转换有序。
 接口从真实消费者提取，不引入通用事件解释器、插件加载器或依赖注入框架。
 
-R3 再创建 `deploy/docker/`，提供镜像、Compose、可选 TLS 代理配置和运行说明。
+`deploy/docker/` 和 `deploy/cloudflare-tunnel/` 已提供镜像构建与入口配置；
+`.dockerignore` 只允许 runtime 构建输入，不把本地凭据、`.context` 或产品工作区送入构建。
+Vercel 暂缓，没有创建占位 adapter。
 
 ## 3. 依赖与类型隔离
 
@@ -75,6 +88,7 @@ R3 再创建 `deploy/docker/`，提供镜像、Compose、可选 TLS 代理配置
 平台 SDK 声明在所属构建范围，按需引入，避免将所有 vendor 依赖装进客户端或 Bun 镜像。
 
 `tsconfig.base.json` 的 `types: []` 隔离平台全局；Bun runtime、测试/脚本单独引入 Bun 类型。
+`tsconfig.cloudflare.json` 单独检查 Workers 类型，平台 SDK 不进入公开包或 Bun bundle。
 `check-imports.ts` 检查包的源码/声明及 core 的导入边界与平台全局；
 `check-package.ts` 验证 tarball、离线消费者和浏览器构建。
 类型检查与打包成功仍不能替代 Electron/Hermes 真机验证。

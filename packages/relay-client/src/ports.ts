@@ -6,7 +6,7 @@ export interface RelaySocket {
   readonly bufferedAmount: number
   /** undefined/positive/-1 means accepted; 0 means a nonempty frame was dropped. */
   // biome-ignore lint/suspicious/noConfusingVoidType: Native browser WebSocket.send returns void; adapters may return a status.
-  send(data: Uint8Array<ArrayBuffer>): void | number
+  send(data: string | Uint8Array<ArrayBuffer>): void | number
   close(code?: number, reason?: string): void
   addEventListener(type: 'message', listener: (event: { data: unknown }) => void): void
   addEventListener(type: 'close' | 'error', listener: () => void): void

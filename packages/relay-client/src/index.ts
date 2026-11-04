@@ -10,3 +10,4 @@ export type {
 export { signRelayRequest } from './relayRequests.js'
 export { attachRelayStream, connectRelayStream } from './rendezvous.js'
 export type { RelayConnectOptions } from './rendezvous.js'
+export { respondToRelayProbe } from './probe.js'

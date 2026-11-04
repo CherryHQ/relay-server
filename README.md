@@ -10,7 +10,10 @@
 
 已实现两个跨端包和单实例 Bun runtime：临时会合、二进制转发、有界 RelayStream 和运行资源保护。
 真实 runtime 的 Noise/WSS、1 MiB 上传、异常接入、重启和慢读清理已通过本地验证。
-桌面/App 接入代码与本地回归已实现；原生端到端验收、依赖发布及部署模板仍待完成。
+桌面/App 接入代码与本地回归已实现；原生端到端验收及依赖发布仍待完成。
+已提供 [Docker / Caddy](deploy/docker/README.md)、[Cloudflare Tunnel](deploy/cloudflare-tunnel/README.md)
+及支持休眠恢复的 [Workers + Durable Objects](deploy/cloudflare/README.md)
+部署配置，验证范围见[部署记录](docs/deployment-status.md)。Vercel 暂缓。
 详见[客户端接入记录](docs/client-integration-status.md)和[R2 实现记录](docs/r2-implementation-status.md)。
 桌面与 App 草稿使用未发布的本地包，准备步骤见[客户端草稿联调](docs/client-preview.md)。
 
@@ -33,6 +36,19 @@ bun run verify
 包检查先为隔离消费者解析依赖，再清空安装目录验证离线重装；首次运行需要访问包注册表。
 测试需要系统 `openssl` 和 `tar`；格式化使用 `bun run format`。
 `bun run perf:baseline` 输出本机回环基线，不代表生产容量或云端费用。
+
+容器本机启动（仅绑定 loopback）：
+
+```sh
+docker compose -p cherry-relay \
+  -f deploy/docker/compose.yml -f deploy/docker/compose.local.yml up -d --build
+bun run smoke:relay ws://127.0.0.1:8787/v1/relay
+```
+
+公网入口选择上面的 Caddy 或 Cloudflare Tunnel 配置，客户端使用 WSS。
+`bun run build:runtime` 可独立打包服务；`bun run check:container IMAGE` 检查已构建的镜像。
+`bun run dev:cloudflare` 启动本地 DO；`bun run check:cloudflare` 使用 Node.js 24 + workerd 验证真实休眠恢复。
+DO 入口需要本次更新后的客户端收包回执支持，接入步骤见上面的 Workers 部署说明。
 
 文档按职责划分：
 

@@ -1,0 +1,43 @@
+# Use with deploy/docker/compose.yml as the FIRST Compose file (see README).
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+    restart: unless-stopped
+    depends_on:
+      relay:
+        condition: service_healthy
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --metrics
+      - 127.0.0.1:2000
+      - --grace-period
+      - 20s
+      - run
+      - --token-file
+      - /run/secrets/tunnel_token
+    secrets:
+      - tunnel_token
+    healthcheck:
+      test: ['CMD', 'cloudflared', 'tunnel', '--metrics', '127.0.0.1:2000', 'ready']
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
+secrets:
+  tunnel_token:
+    file: ${TUNNEL_TOKEN_FILE:?Set TUNNEL_TOKEN_FILE to an absolute path outside the checkout}

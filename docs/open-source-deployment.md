@@ -1,7 +1,9 @@
 # 开源自建与托管部署
 
 日期：2026-11-04。目标是使用公开代码独立运行最小 Relay。
-协议、客户端和 Bun 服务已实现；[源码启动与 TLS 配置](runtime.md)可用，镜像、部署模板和产品端验收仍待交付。
+协议、客户端和 Bun 服务已实现；[源码启动与 TLS 配置](runtime.md)、
+[Docker/Caddy](../deploy/docker/README.md)和[Cloudflare Tunnel](../deploy/cloudflare-tunnel/README.md)配置已提供。
+产品端验收、正式域名部署和容器镜像发布仍待完成，验证范围见[部署记录](deployment-status.md)。
 
 ## 1. 默认运行范围
 
@@ -16,6 +18,10 @@
 未来部署者选择额外接入策略时，需要明确其外部依赖；不能暗中把策略故障降级为绕过校验。
 
 ## 2. R3 交付物
+
+本次交付固定基础镜像 digest 的 Dockerfile、三种 Compose 入口（本机、Caddy、Tunnel）、
+配置示例、公网 smoke 命令和容器 CI。Vercel 按当前决定暂缓，不将其列为已支持平台。
+以下是完整 R3 验收目标，提供模板不代表全部已完成：
 
 - 可独立构建的源码、锁文件、明确的许可证与第三方依赖说明。
 - 对应固定源码版本的 amd64/arm64 镜像与 Compose 示例。
@@ -49,3 +55,9 @@ HTTP 健康检查、本地模拟 peer、真机配对和实际云部署分别记�
 后台推送独立提供，见[性能与通知方案](performance-and-operations-plan.md#4-可选后台推送)。
 部署者只能使用自己有权使用的推送凭据；官方 App 的推送若需官方网关，明确标为可选外部依赖。
 缺少推送不影响前台连接，自建服务不获得官方推送私钥。
+
+## 5. Workers + Durable Objects
+
+需要托管 runtime、无需自备服务器时，可使用[独立 Workers/DO 部署](../deploy/cloudflare/README.md)。
+它支持 WebSocket 休眠与必要状态恢复，保持账号和业务存储独立；需要更新客户端的收包回执支持。
+每部署一个 DO，可容纳多个设备和会话，正式容量/费用仍需云端验收。

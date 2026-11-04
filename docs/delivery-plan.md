@@ -20,8 +20,9 @@ R1 的包验证见[首批记录](r1-implementation-status.md)，runtime 的实�
 
 1. 完成移动原生接收保护和 Electron/iOS/Android 的跨网、重启、撤销及前后台验收。
 2. 发布共享协议及 Relay 依赖，将[接入修改](client-integration-status.md)分别合入产品仓库。
-3. 完成镜像、TLS/代理示例和跨网自建闭环。
-4. 再适配实际选用的云平台 runtime。
+3. Docker、Caddy 和 Cloudflare Tunnel 模板已实现，继续完成正式域名与跨网产品自建闭环；见[部署记录](deployment-status.md)。
+4. Workers + Durable Objects 已实现休眠恢复、随机收包回执、部署模板和本地 workerd 验证；
+   接着完成客户端依赖更新及正式账户部署/容量验收。Vercel 继续暂缓。
 
 runtime 已具备有界内存会合与转发，后续接入不以持久状态迁移、设备登记后台、管理 CLI 或全局配额账本为前置。
 现有 proof helper 保留为可选工具，不因它已经存在就补造一套依赖服务。

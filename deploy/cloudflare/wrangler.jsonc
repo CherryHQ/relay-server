@@ -1,0 +1,11 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cherry-relay",
+  "main": "../../src/cloudflare/worker.ts",
+  "compatibility_date": "2026-11-04",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{ "name": "RELAY", "class_name": "RelayObject" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RelayObject"] }],
+}

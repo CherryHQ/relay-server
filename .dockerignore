@@ -1,0 +1,13 @@
+# Allow only the runtime build inputs. Never send local credentials or client workspaces.
+**
+!src/
+!src/**
+!packages/
+!packages/relay-protocol/
+!packages/relay-protocol/src/
+!packages/relay-protocol/src/**
+!scripts/
+!scripts/build-runtime.ts
+!deploy/
+!deploy/docker/
+!deploy/docker/Dockerfile

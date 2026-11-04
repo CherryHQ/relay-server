@@ -14,6 +14,9 @@ const inbound = await attachRelayStream(offer, { origin, createSocket, signal, l
 两个入口验证 HTTPS origin、会话、epoch 和 limits，在 ready 回调内同步安装二进制接收器。
 默认总超时 15 秒，可通过 timeoutMs 收紧；AbortSignal 在成功后仍控制返回流的生命周期。
 桌面长连接的 listen、offer 分发和重连仍由产品连接 owner 负责。
+Cloudflare DO 会发送可选的随机收包回执，connect/attach 和 RelayStream 自动应答。
+桌面 listener 在 `parseServerControl` 前调用 `respondToRelayProbe(socket, text)`，返回 true 时停止会合解析。
+回执不进入业务流、不推进 DATA/ACK 计数；socket 的 send 必须同时支持文本和二进制。
 已有会合实现也可以将检查完 ready 的 socket 交给低层构造器：
 
 ```ts

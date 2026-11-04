@@ -6,5 +6,6 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["scripts/**/*.ts", "tests/**/*.ts", "packages/*/tests/**/*.ts"]
+  "include": ["scripts/**/*.ts", "tests/**/*.ts", "packages/*/tests/**/*.ts"],
+  "exclude": ["tests/cloudflare/*.worker.ts"]
 }

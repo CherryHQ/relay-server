@@ -81,3 +81,17 @@ iOS 使用 maximumMessageSize；两端的 JS/原生队列预算均不代表整�
 
 后续顺序：原生接收保护与双端实际验收 → 依赖发布与产品仓库合入 → 容器/TLS 自建闭环 →
 按实际选用的云平台适配 runtime。无需先建设凭证后端或 Relay 持久状态库。
+
+## 4. Workers/DO 接入补充
+
+新增的 [Workers/DO runtime](../deploy/cloudflare/README.md) 使用随机收包回执约束平台发送缓冲。
+共享包的 connect/attach/RelayStream 自动应答，桌面 `relayConnection.ts` 在会合消息解析前调用
+`respondToRelayProbe`，兼容首次监听与后续 offer 期间的回执。
+本地两端预览 tarball 及对应 lockfile integrity 已更新，App 原生 socket 已支持文本发送，无需新增原生 API。
+本次桌面 listener 5 项测试及修改文件 lint 通过；App socket 适配回归及完整 workspace 类型检查通过。
+App checkout 位于 `.context` 下，Jest 默认会忽略此绝对路径；本次聚焦运行仅在命令行设置
+`testPathIgnorePatterns=/node_modules/`，没有修改产品 Jest 配置。
+这些后续修改已提交并推送到现有 draft PR：
+[Desktop #23505](https://github.com/CherryHQ/cherry-studio/pull/23505)（`c3fb241`）和
+[App #1600](https://github.com/CherryHQ/cherry-studio-app/pull/1600)（`09d5845`）。
+本地、远端分支与 PR head 一致，提交签名已验证；包发布、正式 DO 部署和真机验收仍待完成。

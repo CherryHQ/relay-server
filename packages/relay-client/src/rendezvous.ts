@@ -12,6 +12,7 @@ import {
 import type { Logger } from '@libp2p/interface'
 
 import type { RelaySocketFactory } from './ports.js'
+import { respondToRelayProbe } from './probe.js'
 import { RelayStream } from './RelayStream.js'
 
 export interface RelayConnectOptions {
@@ -111,6 +112,7 @@ async function rendezvous(
         if (!opened || typeof event.data !== 'string') {
           throw new RelayProtocolError('Expected relay control message')
         }
+        if (respondToRelayProbe(socket, event.data)) return
         const control = parseServerControl(event.data)
         if (control.type === 'pending' && !pending) {
           if (expected) assertReadyMatches({ ...control, type: 'ready' }, expected)
