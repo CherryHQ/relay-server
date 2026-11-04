@@ -193,9 +193,76 @@ test('a missing native peer is closed on restore, and incompatible attachments c
   host.socket.attachment = { v: 999 }
   h.hibernate()
   expect(h.runtime.reserveUpgrade()).toBe(503)
+  expect(h.events.find(({ event }) => event === 'restore_failed')?.fields).toMatchObject({
+    cause: 'Invalid socket attachment',
+  })
   for (const socket of h.sockets) h.close(socket)
   expect(h.runtime.reserveUpgrade()).toBeUndefined()
   const next = await h.listen(host.hostKey)
   expect(next.info.targetId).toBe(host.info.targetId)
   expect(next.info.ownerEpoch).not.toBe(host.info.ownerEpoch)
+})
+
+test('diagnostics correlate sessions across hibernation without closing the listener or logging credentials', async () => {
+  const h = durableFixture()
+  const host = await h.listen()
+  const pair = await h.pair(host)
+  h.hibernate()
+  h.close(pair.app)
+  expect(h.events.find(({ event }) => event === 'session_closed')?.fields).toMatchObject({
+    sessionId: pair.offer.sessionId,
+    ownerEpoch: host.info.ownerEpoch,
+    listenerOnline: true,
+  })
+  expect(host.socket.readyState).toBe(1)
+  expect(host.socket.control('session_closed').sessionId).toBe(pair.offer.sessionId)
+  const next = await h.pair(host)
+  await h.send(next.app, data())
+  expect(next.desktop.inbox).toContainEqual(data())
+  expect(
+    h.events.filter(({ event, fields }) => event === 'socket_closing' && fields.state === 'listener'),
+  ).toEqual([])
+  expect(h.events.filter(({ event }) => event === 'runtime_ready')).toHaveLength(2)
+  const logs = JSON.stringify(h.events)
+  for (const secret of [host.hostKey, pair.offer.ticket, next.offer.ticket])
+    expect(logs).not.toContain(secret)
+})
+
+test('diagnostics identify the listener blocking admission and the receipt timeout', async () => {
+  const h = durableFixture({ stallMs: 100 })
+  const host = await h.listen()
+  const admitted = h.events.find(({ event }) => event === 'listener_admitted')?.fields
+  expect((await h.open({ v: 1, type: 'listen', hostKey: host.hostKey })).reason).toBe('TARGET_BUSY')
+  expect(h.events.find(({ event }) => event === 'listener_rejected')?.fields).toMatchObject({
+    reason: 'TARGET_BUSY',
+    activeConnectionId: admitted?.connectionId,
+  })
+  const stalled = await h.open({ v: 1, type: 'listen', hostKey: 'cd'.repeat(32) }, false)
+  h.hibernate()
+  h.advance(101)
+  expect(stalled.reason).toBe('STALLED')
+  expect(
+    h.events.find(({ event, fields }) => event === 'socket_closing' && fields.reason === 'STALLED')?.fields,
+  ).toMatchObject({
+    state: 'listener',
+    receiptDeadline: 1_000_100,
+  })
+  expect(host.socket.readyState).toBe(1)
+})
+
+test('checkpoint errors keep connection context but never include exception text or attachments', async () => {
+  const h = durableFixture()
+  const host = await h.listen()
+  const privateText = `hostKey=${host.hostKey}; verificationCode=123456`
+  host.socket.serializeAttachment = () => {
+    throw new Error(privateText)
+  }
+  await expect(h.send(host.socket, 'not JSON')).rejects.toThrow(privateText)
+  const failure = h.events.find(({ event }) => event === 'checkpoint_failed')?.fields
+  expect(failure).toMatchObject({
+    connectionId: h.events.find(({ event }) => event === 'listener_admitted')?.fields.connectionId,
+    cause: 'UNCLASSIFIED',
+  })
+  const logs = JSON.stringify(h.events)
+  for (const secret of [host.hostKey, '123456', 'verificationCode']) expect(logs).not.toContain(secret)
 })

@@ -1,6 +1,7 @@
 import { bytesToHex, rendezvousPath } from '@cherrystudio/relay-protocol'
 import { DurableObject } from 'cloudflare:workers'
 
+import { type DiagnosticFields, failureDetails } from './diagnostics.js'
 import { DurableRelayRuntime } from './runtime.js'
 
 interface Env {
@@ -33,6 +34,7 @@ export default {
 export class RelayObject extends DurableObject<Env> {
   protected readonly relay: DurableRelayRuntime
   private alarmAt: number | null = null
+  private readonly diagnosticBootId = crypto.randomUUID()
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -46,6 +48,7 @@ export class RelayObject extends DurableObject<Env> {
         randomHex: (bytes) => bytesToHex(crypto.getRandomValues(new Uint8Array(bytes))),
         sha256: async (text) =>
           bytesToHex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))),
+        log: (event, fields) => this.log(event, fields),
       },
       overrides,
     )
@@ -53,6 +56,10 @@ export class RelayObject extends DurableObject<Env> {
       this.alarmAt = await ctx.storage.getAlarm()
       await this.flush()
     })
+  }
+
+  private log(event: string, fields: DiagnosticFields): void {
+    console.log(JSON.stringify({ component: 'RelayDO', bootId: this.diagnosticBootId, event, ...fields }))
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -78,13 +85,13 @@ export class RelayObject extends DurableObject<Env> {
     }
   }
 
-  async webSocketClose(socket: WebSocket): Promise<void> {
-    this.relay.closed(socket)
+  async webSocketClose(socket: WebSocket, code: number, _reason: string, wasClean: boolean): Promise<void> {
+    this.relay.closed(socket, { code, wasClean })
     await this.flush()
   }
 
   async webSocketError(socket: WebSocket): Promise<void> {
-    this.relay.closed(socket)
+    this.relay.closed(socket, { error: true })
     await this.flush()
   }
 
@@ -95,16 +102,24 @@ export class RelayObject extends DurableObject<Env> {
   }
 
   private async flush(): Promise<void> {
+    let phase = 'checkpoint'
     try {
       this.relay.checkpoint()
       const deadline = this.relay.nextDeadline
       // Keep an already-earlier alarm. ACKs don't rewrite storage on every frame; a harmless
       // final alarm may wake once, then an idle listener/ready session has no recurring timer.
       if (deadline !== undefined && (this.alarmAt === null || deadline < this.alarmAt)) {
+        phase = 'alarm'
         this.alarmAt = Math.max(Date.now() + 1, deadline)
         await this.ctx.storage.setAlarm(this.alarmAt)
       }
-    } catch {
+    } catch (error) {
+      this.log('flush_failed', {
+        ownerEpoch: this.relay.ownerEpoch,
+        phase,
+        ...this.relay.getStats(),
+        ...failureDetails(error),
+      })
       // Never keep using sockets after a failed checkpoint; reconnect with a fresh Noise stream.
       this.ctx.abort('Relay checkpoint failed')
     }

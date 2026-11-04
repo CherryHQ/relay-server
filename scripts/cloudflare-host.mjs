@@ -14,6 +14,8 @@ const mf = new Miniflare(
     host: '127.0.0.1',
     port: 0,
     cf: false,
+    // stdout is the test driver's JSON command channel; Worker diagnostics belong on stderr.
+    handleStructuredLogs: ({ message }) => process.stderr.write(`${message}\n`),
     durableObjects: { RELAY: { className: 'RelayObject', useSQLite: true } },
   }),
 )

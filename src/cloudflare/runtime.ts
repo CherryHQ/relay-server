@@ -15,6 +15,7 @@ import { BufferBudget, RateBudget, type RateSnapshot } from '../core/forwarding.
 import type { RelayPeer } from '../core/ports.js'
 import { RelaySession, type SessionSnapshot } from '../core/session.js'
 import { cloudflareConfig } from './config.js'
+import { type DiagnosticFields, failureDetails } from './diagnostics.js'
 import { type DurableSocket, ReceiptSender, type ReceiptSnapshot } from './sender.js'
 
 export interface DurableHost {
@@ -22,6 +23,7 @@ export interface DurableHost {
   now(): number
   randomHex(bytes: number): string
   sha256(text: string): Promise<string>
+  log?(event: string, fields: DiagnosticFields): void
 }
 
 interface SessionRecord {
@@ -95,15 +97,35 @@ export class DurableRelayRuntime {
     this.bytes = new RateBudget(this.config.totalBytesPerSecond, now)
     try {
       this.restore()
-    } catch {
+      this.log('runtime_ready', undefined, this.getStats())
+    } catch (error) {
       // An incompatible/corrupt snapshot cannot safely resume an encrypted byte stream.
       this.recoveryFailed = true
+      this.log('restore_failed', undefined, { ...failureDetails(error), sockets: host.sockets().length })
       for (const socket of host.sockets()) socket.close(1012, 'RELAY_UNAVAILABLE')
       this.connections.clear()
       this.targets.clear()
       this.sessions.clear()
       this.dirty.clear()
     }
+  }
+
+  private log(event: string, connection?: Connection, fields: DiagnosticFields = {}): void {
+    if (!this.host.log) return
+    const state = connection?.state
+    const target =
+      state?.kind === 'listener' ? state.target : state?.kind === 'data' ? state.record.target : undefined
+    this.host.log(event, {
+      ownerEpoch: this.ownerEpoch,
+      connectionId: connection?.id,
+      state: state?.kind,
+      target: target?.id.slice(0, 12),
+      sessionId: state?.kind === 'data' ? state.record.session.selection.sessionId : undefined,
+      role: state?.kind === 'data' ? state.role : undefined,
+      pendingBytes: connection?.sender.pendingBytes,
+      receiptDeadline: connection?.sender.nextDeadline,
+      ...fields,
+    })
   }
 
   private target(id: string): Target {
@@ -248,13 +270,20 @@ export class DurableRelayRuntime {
 
   reserveUpgrade(): 429 | 503 | undefined {
     this.tick()
-    if (this.recoveryFailed || this.connections.size >= this.config.maxConnections) return 503
-    if (!this.upgrades.take(1, this.host.now())) return 429
+    if (this.recoveryFailed || this.connections.size >= this.config.maxConnections) {
+      this.log('upgrade_rejected', undefined, { httpStatus: 503, ...this.getStats() })
+      return 503
+    }
+    if (!this.upgrades.take(1, this.host.now())) {
+      this.log('upgrade_rejected', undefined, { httpStatus: 429 })
+      return 429
+    }
     return undefined
   }
 
   open(socket: DurableSocket): void {
     const connection = this.connection(socket)
+    this.log('socket_opened', connection)
     this.dirty.add(connection)
     if (!connection.sender.challenge()) this.close(connection, 'RESOURCE_EXHAUSTED')
   }
@@ -293,8 +322,10 @@ export class DurableRelayRuntime {
       this.close(connection, 'RESOURCE_EXHAUSTED')
       return
     }
+    let phase = 'decode'
     try {
       if (typeof message !== 'string') {
+        phase = 'data'
         if (connection.state.kind !== 'data') throw new Error('Unexpected DATA')
         const { record, role } = connection.state
         this.dirty.add(record.app)
@@ -303,6 +334,7 @@ export class DurableRelayRuntime {
       }
       const probe = parseRelayProbe(message)
       if (probe) {
+        phase = 'receipt'
         if (probe.type !== 'probe_ack') throw new Error('Unexpected transport challenge')
         if (!connection.sender.acknowledge(probe.nonce)) this.close(connection, 'RESOURCE_EXHAUSTED')
         return
@@ -311,6 +343,7 @@ export class DurableRelayRuntime {
       // for the role; only overlapping rendezvous commands are rejected during admission.
       if (connection.admitting) throw new Error('Admission already in progress')
       const control = parseClientControl(message)
+      phase = connection.state.kind === 'new' ? 'admission' : 'control'
       if (connection.state.kind === 'new') {
         connection.admitting = true
         try {
@@ -332,8 +365,10 @@ export class DurableRelayRuntime {
           throw new Error('Wrong session')
         this.dirty.add(record.app)
         record.session.start(role, now)
+        if (record.session.state === 'ready') this.log('session_ready', connection)
       } else throw new Error('Unexpected control message')
-    } catch {
+    } catch (error) {
+      this.log('message_rejected', connection, { phase, bytes: size, ...failureDetails(error) })
       this.close(connection, 'PROTOCOL_ERROR')
     }
   }
@@ -348,6 +383,11 @@ export class DurableRelayRuntime {
       }
       const existing = this.targets.get(id)
       if (existing?.listener) {
+        this.log('listener_rejected', connection, {
+          target: id.slice(0, 12),
+          reason: 'TARGET_BUSY',
+          activeConnectionId: existing.listener.id,
+        })
         this.close(connection, 'RESOURCE_EXHAUSTED', 'TARGET_BUSY')
         return
       }
@@ -358,6 +398,7 @@ export class DurableRelayRuntime {
       const target = this.target(id)
       target.listener = connection
       connection.state = { kind: 'listener', target }
+      this.log('listener_admitted', connection)
       this.control(connection, { v: 1, type: 'listening', targetId: id, ownerEpoch: this.ownerEpoch })
     } else if (message.type === 'connect') {
       const target = this.targets.get(message.targetId)
@@ -389,6 +430,7 @@ export class DurableRelayRuntime {
       this.sessions.set(selection.sessionId, record)
       target.sessions.add(record)
       connection.state = { kind: 'data', record, role: 'app' }
+      this.log('session_offered', connection, { listenerConnectionId: target.listener.id })
       if (
         !this.control(connection, {
           v: 1,
@@ -427,6 +469,7 @@ export class DurableRelayRuntime {
       this.dirty.add(record.app)
       record.session.attach(this.peer(connection), now)
       connection.state = { kind: 'data', record, role: 'desktop' }
+      this.log('session_attached', connection)
       this.control(connection, {
         v: 1,
         type: 'pending',
@@ -439,6 +482,12 @@ export class DurableRelayRuntime {
   private sessionClosed(record: SessionRecord, reason: CloseReason): void {
     const id = record.session.selection.sessionId
     if (this.sessions.get(id) !== record) return
+    this.log('session_closed', record.app, {
+      sessionId: id,
+      target: record.target.id.slice(0, 12),
+      reason,
+      listenerOnline: Boolean(record.target.listener),
+    })
     this.sessions.delete(id)
     record.ticket = undefined
     record.target.sessions.delete(record)
@@ -453,6 +502,7 @@ export class DurableRelayRuntime {
 
   private close(connection: Connection, reason: CloseReason, detail: string = reason): void {
     if (connection.state.kind === 'closing') return
+    this.log('socket_closing', connection, { reason, detail })
     const previous = connection.state
     connection.state = { kind: 'closing' }
     this.dirty.add(connection)
@@ -469,9 +519,10 @@ export class DurableRelayRuntime {
     // Workers has no terminate(). Hold the reservation and connection slot until the native close.
   }
 
-  closed(socket: DurableSocket): void {
+  closed(socket: DurableSocket, details: { code?: number; wasClean?: boolean; error?: boolean } = {}): void {
     const connection = this.connections.get(socket)
     if (!connection) return
+    this.log(details.error ? 'socket_error' : 'socket_closed', connection, details)
     this.close(connection, 'RELAY_UNAVAILABLE')
     // Called only by the platform's terminal close/error callback. Some error callbacks expose
     // CLOSING on the JS wrapper even though the underlying connection has already failed.
@@ -543,7 +594,12 @@ export class DurableRelayRuntime {
         frames: connection.frames.snapshot(),
         bytes: connection.bytes.snapshot(),
       }
-      connection.socket.serializeAttachment(attachment)
+      try {
+        connection.socket.serializeAttachment(attachment)
+      } catch (error) {
+        this.log('checkpoint_failed', connection, failureDetails(error))
+        throw error
+      }
     }
     this.dirty.clear()
   }

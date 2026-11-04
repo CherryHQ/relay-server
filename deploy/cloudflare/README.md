@@ -117,6 +117,10 @@ Workers 原生接收消息上限由平台控制，应用在回调中拒绝超过
 
 ## 验证
 
+配对后掉线、反复重连、休眠恢复异常的日志采集与判断步骤见
+[Relay 连接排查](../../docs/relay-debugging.md)。Worker 输出 `RelayDO` 结构化生命周期日志，
+不记录密钥、票据或转发帧，也不为日志增加定时器和逐帧存储。
+
 ```sh
 bun run verify
 bun run build:cloudflare

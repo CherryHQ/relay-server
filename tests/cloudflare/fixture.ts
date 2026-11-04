@@ -9,6 +9,7 @@ import {
   type ServerControl,
 } from '@cherrystudio/relay-protocol'
 
+import type { DiagnosticFields } from '../../src/cloudflare/diagnostics.js'
 import { DurableRelayRuntime } from '../../src/cloudflare/runtime.js'
 import type { DurableSocket } from '../../src/cloudflare/sender.js'
 import type { RuntimeConfig } from '../../src/config.js'
@@ -49,11 +50,13 @@ export class MemorySocket implements DurableSocket {
 export function durableFixture(config: Partial<RuntimeConfig> = {}) {
   let now = 1_000_000
   const sockets: MemorySocket[] = []
+  const events: { event: string; fields: DiagnosticFields }[] = []
   const host = {
     now: () => now,
     sockets: () => sockets.filter((socket) => socket.readyState !== 3),
     randomHex: (bytes: number) => randomBytes(bytes).toString('hex'),
     sha256: async (text: string) => createHash('sha256').update(text).digest('hex'),
+    log: (event: string, fields: DiagnosticFields) => events.push({ event, fields }),
   }
   let runtime = new DurableRelayRuntime(host, config)
   const send = async (socket: MemorySocket, message: ClientControl | Uint8Array | string) => {
@@ -127,6 +130,7 @@ export function durableFixture(config: Partial<RuntimeConfig> = {}) {
       return runtime
     },
     sockets,
+    events,
     send,
     receipts,
     open,
