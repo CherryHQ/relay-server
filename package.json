@@ -13,7 +13,7 @@
     "start": "bun src/bun/main.ts",
     "build": "bun scripts/build-packages.ts",
     "build:runtime": "bun scripts/build-runtime.ts",
-    "build:cloudflare": "bun run build && wrangler deploy --dry-run --config deploy/cloudflare/wrangler.jsonc --outdir ../../.context/cloudflare-build",
+    "build:cloudflare": "bun run build && wrangler deploy --dry-run --config deploy/cloudflare/wrangler.jsonc --outdir \"$PWD/.context/cloudflare-build\"",
     "dev:cloudflare": "bun run build && wrangler dev --config deploy/cloudflare/wrangler.jsonc --local",
     "deploy:cloudflare": "bun run build && wrangler deploy --config deploy/cloudflare/wrangler.jsonc",
     "typecheck": "bun check --no-script -p packages/relay-protocol/tsconfig.json && bun check --no-script -p packages/relay-client/tsconfig.json && bun check --no-script -p tsconfig.core.json && bun check --no-script -p tsconfig.runtime.json && bun check --no-script -p tsconfig.cloudflare.json && bun check --no-script -p tsconfig.tools.json",
