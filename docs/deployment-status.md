@@ -28,8 +28,10 @@ DO 仅使用 socket 附属状态和 alarm。
 | Compose | local、Caddy、Tunnel 三组组合均通过 `config --quiet` |
 | Caddy | 实际镜像通过配置校验；本机 HTTP 反向代理入口的健康、会合、双向各 1 MiB 和关闭通过 |
 | Cloudflare 数据路径 | 临时 Quick Tunnel 经真实公网 WSS 完成同一 smoke；connector readiness 检查通过；测试后关闭临时入口 |
-| Workers/DO 打包 | Wrangler dry-run 通过；未部署到 Cloudflare 账号 |
+| Workers/DO 打包 | Wrangler dry-run 通过 |
 | Workers/DO 本地执行 | workerd 完成双向各 1 MiB DATA/ACK；强制休眠后 constructor 重跑，原 socket/epoch 保留，票据重放和伪造 ACK 被拒绝；同一 Noise 通道跨休眠完成 1 MiB 上传和反向响应；关闭后连接与预算归零 |
+| Workers/DO 生产入口 | 已部署到 CherryAI 账号的 <https://cherry-relay.cherryai.workers.dev>；公网健康检查、会话会合、双向各 1 MiB DATA/ACK 和关闭流程通过 |
+| Workers/DO 自动部署 | `main` 已连接 Cloudflare Workers Builds，验证成功后发布；命令和构建变量见 [Workers 部署说明](../deploy/cloudflare/README.md#github-自动部署)，每次执行结果以对应提交的云端构建记录为准 |
 
 AMD64 的本机失败属于已观察到的模拟环境限制：Bun 报告 `CPU lacks AVX support`，
 不能据此宣布 AMD64 运行验证成功或忽略失败。已加入 `ubuntu-latest` 原生 AMD64 容器 CI，

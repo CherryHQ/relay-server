@@ -32,6 +32,21 @@ bun run smoke:relay wss://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/v1/relay
 可以按 Cloudflare 官方流程绑定自定义域名。`/healthz` 和 `/readyz` 仅检查入口，不证明会话容量充足；
 容量满时 upgrade 返回 503。正式部署仍需配置账户级用量限制和入口访问策略，资源限制只作用于当前 DO。
 
+## GitHub 自动部署
+
+本仓库的 `main` 分支已通过 Cloudflare Workers Builds 连接到 `cherry-relay`。
+推送提交或合并 PR 后，验证成功才发布到
+<https://cherry-relay.cherryai.workers.dev>；其他分支和 PR 不启用预览构建。
+
+- 根目录：`/`；Node.js 24；Bun 版本读取根目录 `package.json` 的 `packageManager`。
+- 构建命令：`bun run verify && bun run build:cloudflare && bun run check:cloudflare`。
+- 部署命令：`bun run deploy:cloudflare`。
+- 构建变量：`NODE_VERSION=24`、`WRANGLER_SEND_METRICS=false`。
+- 部署凭证：Cloudflare 中的 `cherry-relay build token`，无需向 GitHub 仓库添加密钥。
+
+在 Worker 的“设置 → 构建”中维护这些配置，在“部署”中查看每次提交的构建日志和发布结果。
+自建或 fork 仓库需要在自己的 Cloudflare 账号中单独建立 Git 连接。
+
 ## 会话与休眠
 
 当前一个部署对应一个固定名称 `relay-v1` 的 DO，可承载多个桌面、用户和会话。
@@ -111,7 +126,8 @@ bun run check:cloudflare
 最后一项启动隔离的本地 workerd，在保留 socket 的情况下强制清空 DO 内存，
 校验 constructor 确实重跑、ownerEpoch 保留、票据不可重放、序号/ACK 继续有效，
 以及已经建立的 Noise 通道可继续上传 1 MiB 密文并接收反向响应。测试入口不进入部署产物。
-需要 Node.js 24，测试结束关闭所有临时进程。未进行实际 Cloudflare 账户部署、云端休眠计费或长期压测。
+需要 Node.js 24，测试结束关闭所有临时进程。CherryAI 账号已完成部署，公网 smoke 通过健康检查、
+会话会合、双向各 1 MiB DATA/ACK 和关闭流程；云端休眠计费和长期压测仍未验证。
 
 官方依据：[休眠与 attachment](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)、
 [生命周期与定时器](https://developers.cloudflare.com/durable-objects/concepts/durable-object-lifecycle/)、
