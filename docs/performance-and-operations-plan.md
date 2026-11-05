@@ -84,8 +84,13 @@ provider 接受不等于用户已收到或 App 一定被唤醒；不自动执行
 基础交付见[自建方案](open-source-deployment.md)：单实例 Bun、TLS、资源配置、健康检查与排空，不要求数据库或登记 CLI。
 升级和故障通过有界重连恢复访问，端点负责保留配对和业务恢复信息。
 
-Tailcat/P2P 仅在真实端点验证后采用，测实际绕过中转的流量以及回退、功耗和部署成本。
-WebRTC/TURN 在明确的媒体需求出现后独立设计，均不加入基础运行依赖。
+[P2P 数据直连](p2p-implementation-plan.md)先验证现成 DataChannel 库，测实际绕过中转的流量、
+原生桥接开销、回退、功耗和部署成本；Tailcat 保留为备选。DataChannel 只承载数据，不要求媒体功能。
+能力归端侧 `remote-transport/p2p`；首版先建立已认证的 Relay 通道承载加密信令，
+新 P2P 流再次完成 Noise/授权和切换确认后释放旧数据通道；失败沿用 Relay，提交结果不确定则重连。
+测量必须计入额外建连和两次 Noise 的成本，以及旧流与候选并存的缓冲峰值。
+runtime 保持纯转发，不增加信令或选路状态。客户端配置已有 STUN 辅助打洞，自建服务可选；
+TURN 和音视频按后续实际需求交付，不加入基础运行依赖。
 
 二进制数据、连接清理、推送隔离和自建交付参考了
 [Alma Relay 的协议与实现](https://github.com/yetone/alma-relay/tree/06594179b7dc44a500e0c53e814314426bcb9241)。

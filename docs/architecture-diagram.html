@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cherry Remote 完整架构</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--foreground, CanvasText);
+        font-family: var(--font-sans, system-ui, sans-serif);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      code {
+        font-family: var(--font-mono, ui-monospace, monospace);
+        font-size: 0.88em;
+        overflow-wrap: anywhere;
+      }
+      p,
+      h2,
+      h3,
+      h4 {
+        margin: 0;
+      }
+      h2 {
+        font-size: 17px;
+        line-height: 1.4;
+      }
+      h3 {
+        font-size: 15px;
+        line-height: 1.4;
+      }
+      h4 {
+        font-size: 14px;
+      }
+      p + p {
+        margin-top: 6px;
+      }
+      .muted {
+        color: var(--muted-foreground, GrayText);
+      }
+      .small {
+        font-size: 12px;
+      }
+      .tabs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+        border-bottom: 1px solid var(--border, ButtonBorder);
+        padding-bottom: 7px;
+      }
+      .tab {
+        border: 0;
+        background: transparent;
+        padding: 9px 4px;
+        border-radius: var(--radius, 8px);
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .tab[aria-selected='true'] {
+        color: var(--primary-foreground, HighlightText);
+        background: var(--primary, Highlight);
+      }
+      .tab:hover:not([aria-selected='true']) {
+        background: var(--muted, ButtonFace);
+      }
+      button:focus-visible,
+      summary:focus-visible {
+        outline: 2px solid var(--ring, Highlight);
+        outline-offset: 3px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .panel {
+        padding-top: 16px;
+      }
+      .intro {
+        margin-bottom: 12px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px 16px;
+        margin: 11px 0 15px;
+        font-size: 12px;
+        color: var(--muted-foreground, GrayText);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend i {
+        display: inline-block;
+        width: 20px;
+        border-top: 2px solid var(--foreground, CanvasText);
+      }
+      .legend .future {
+        border-top-style: dashed;
+        border-color: var(--warning, Highlight);
+      }
+      .legend .optional {
+        border-top-style: dotted;
+        border-color: var(--muted-foreground, GrayText);
+      }
+      .card {
+        border: 1px solid var(--border, ButtonBorder);
+        border-radius: var(--radius, 10px);
+        padding: 16px;
+        background: var(--card, Canvas);
+      }
+      .planned {
+        border-style: dashed;
+        border-color: var(--warning, Highlight);
+      }
+      .optional-card {
+        border-style: dotted;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        line-height: 1.5;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--secondary, ButtonFace);
+        color: var(--secondary-foreground, CanvasText);
+        white-space: nowrap;
+      }
+      .tag.plan {
+        color: var(--warning, Highlight);
+        background: var(--warning-surface, ButtonFace);
+      }
+      .tag.current {
+        color: var(--success, CanvasText);
+      }
+      .row-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .note {
+        padding: 12px 14px;
+        border-left: 3px solid var(--info, Highlight);
+        background: var(--muted, ButtonFace);
+        border-radius: 0 var(--radius, 8px) var(--radius, 8px) 0;
+        font-size: 13px;
+      }
+      .gap {
+        margin-top: 14px;
+      }
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .topology {
+        position: relative;
+        isolation: isolate;
+      }
+      .connectors {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: visible;
+        pointer-events: none;
+      }
+      .endpoints {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .endpoint {
+        padding: 14px;
+      }
+      .endpoint > .muted {
+        margin: 3px 0 12px;
+      }
+      .owner {
+        font-size: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border, ButtonBorder);
+        margin-bottom: 10px;
+      }
+      .layer {
+        margin-top: 6px;
+        padding: 7px 9px;
+        background: var(--muted, ButtonFace);
+        border-radius: 6px;
+        font-size: 12px;
+      }
+      .layer strong {
+        display: block;
+        font-size: 13px;
+      }
+      .layer.security {
+        border-left: 3px solid var(--info, Highlight);
+      }
+      .port {
+        margin: 11px 0 0;
+        text-align: center;
+        font-size: 12px;
+      }
+      .port strong {
+        font-size: 13px;
+      }
+      .native {
+        margin-top: 8px;
+        color: var(--muted-foreground, GrayText);
+        font-size: 12px;
+      }
+      .routes {
+        margin: 28px 56px 0;
+        display: grid;
+        gap: 10px;
+      }
+      .route {
+        position: relative;
+        width: 100%;
+        padding: 11px 14px;
+        text-align: left;
+        cursor: pointer;
+        transition: opacity 0.15s;
+      }
+      .route strong {
+        font-size: 14px;
+      }
+      .route .row-heading {
+        margin-bottom: 2px;
+      }
+      .route[data-route='direct'] {
+        border-color: var(--chart-2, Highlight);
+      }
+      .route[data-route='p2p'] {
+        border-color: var(--chart-3, Highlight);
+      }
+      .route[data-route='relay'] {
+        border-color: var(--chart-1, Highlight);
+      }
+      .route[aria-pressed='true'] {
+        outline: 2px solid var(--ring, Highlight);
+        outline-offset: 2px;
+      }
+      .route-dim {
+        opacity: 0.35;
+      }
+      .route .directions {
+        display: none;
+      }
+      .route-detail {
+        margin-top: 12px;
+        min-height: 62px;
+      }
+      .support {
+        margin-top: 12px;
+      }
+      .support .card {
+        padding: 13px;
+        font-size: 12px;
+      }
+      .support h3 {
+        margin: 6px 0;
+        font-size: 14px;
+      }
+      .security-line {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .security-line .lock {
+        font-size: 18px;
+        color: var(--info, Highlight);
+      }
+      .section-label {
+        margin: 20px 0 10px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .optional-zone .card {
+        font-size: 12px;
+      }
+      .optional-zone h3 {
+        margin-bottom: 6px;
+        font-size: 14px;
+      }
+      .footer {
+        border-top: 1px solid var(--border, ButtonBorder);
+        margin-top: 17px;
+        padding-top: 10px;
+        color: var(--muted-foreground, GrayText);
+        font-size: 12px;
+      }
+      .repo {
+        margin-top: 12px;
+      }
+      .repo-label {
+        font-size: 12px;
+        color: var(--muted-foreground, GrayText);
+        margin-bottom: 8px;
+      }
+      .package-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .package {
+        padding: 12px;
+        border-radius: 6px;
+        background: var(--muted, ButtonFace);
+        font-size: 13px;
+      }
+      .package h3 {
+        margin-bottom: 6px;
+      }
+      .dependency {
+        margin-top: 10px;
+        color: var(--muted-foreground, GrayText);
+        font-size: 12px;
+      }
+      .contract {
+        margin: 14px 0;
+        text-align: center;
+      }
+      .contract strong {
+        display: inline-block;
+        border: 1px solid var(--info, Highlight);
+        border-radius: 100px;
+        padding: 6px 15px;
+        font-size: 13px;
+      }
+      .stack-arrow {
+        text-align: center;
+        font-size: 22px;
+        color: var(--muted-foreground, GrayText);
+        line-height: 1.2;
+        margin: 6px 0;
+      }
+      .flow {
+        margin: 14px 0;
+        display: grid;
+        grid-template-columns: 28px 1fr;
+        gap: 0 12px;
+      }
+      .number {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--secondary, ButtonFace);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .rail {
+        position: relative;
+      }
+      .rail::after {
+        content: '';
+        position: absolute;
+        width: 1px;
+        left: 13px;
+        top: 34px;
+        bottom: 6px;
+        background: var(--border, ButtonBorder);
+      }
+      .step {
+        margin-bottom: 15px;
+        font-size: 13px;
+      }
+      .step h3 {
+        margin-bottom: 4px;
+      }
+      .decision {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .decision > div {
+        border-left: 3px solid var(--chart-3, Highlight);
+        padding: 8px 10px;
+        background: var(--muted, ButtonFace);
+      }
+      .decision > div + div {
+        border-left-color: var(--chart-1, Highlight);
+      }
+      .selection {
+        text-align: center;
+        padding: 12px;
+        margin: 10px 0;
+        font-size: 15px;
+      }
+      .selection span {
+        color: var(--muted-foreground, GrayText);
+        padding: 0 9px;
+      }
+      .metric {
+        padding: 12px;
+        font-size: 13px;
+      }
+      .metric strong {
+        display: block;
+        margin-bottom: 5px;
+      }
+      .deployments {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .deployments .card {
+        padding: 12px;
+      }
+      .deployments h3 {
+        font-size: 14px;
+        margin: 5px 0 12px;
+      }
+      .hop {
+        padding: 9px 7px;
+        text-align: center;
+        background: var(--muted, ButtonFace);
+        border-radius: 6px;
+        font-size: 12px;
+      }
+      .hop b {
+        display: block;
+        font-size: 13px;
+      }
+      .hop-arrow {
+        text-align: center;
+        color: var(--muted-foreground, GrayText);
+      }
+      .public-entry {
+        text-align: center;
+        margin: 13px 0;
+      }
+      .state-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        margin-top: 10px;
+      }
+      .state-table th,
+      .state-table td {
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--border, ButtonBorder);
+        padding: 9px 8px;
+      }
+      .state-table th {
+        color: var(--muted-foreground, GrayText);
+        font-weight: 500;
+      }
+      .state-table td:first-child {
+        width: 24%;
+        font-weight: 600;
+      }
+      .state-table td:nth-child(2) {
+        width: 48%;
+      }
+      details {
+        margin-top: 12px;
+      }
+      summary {
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      details p {
+        padding-top: 9px;
+        font-size: 13px;
+      }
+      @media (max-width: 500px) {
+        body {
+          font-size: 13px;
+        }
+        .tabs {
+          gap: 2px;
+        }
+        .tab {
+          font-size: 12px;
+          padding: 9px 1px;
+        }
+        .two,
+        .package-grid,
+        .deployments {
+          grid-template-columns: 1fr;
+        }
+        .endpoints {
+          gap: 8px;
+        }
+        .endpoint {
+          padding: 9px;
+        }
+        .endpoint h3 {
+          font-size: 13px;
+        }
+        .owner {
+          font-size: 11px;
+          min-height: 63px;
+        }
+        .layer {
+          padding: 6px;
+          font-size: 11px;
+        }
+        .layer strong {
+          font-size: 12px;
+        }
+        .native {
+          font-size: 11px;
+        }
+        .routes {
+          margin: 24px 20px 0;
+        }
+        .route {
+          padding: 10px;
+        }
+        .route strong {
+          font-size: 13px;
+        }
+        .route .row-heading {
+          align-items: flex-start;
+          gap: 4px;
+        }
+        .tag {
+          font-size: 10px;
+        }
+        .decision {
+          grid-template-columns: 1fr;
+        }
+        .selection {
+          font-size: 13px;
+          padding: 10px 4px;
+        }
+        .selection span {
+          padding: 0 3px;
+        }
+        .state-table th,
+        .state-table td {
+          padding: 8px 4px;
+        }
+      }
+      @media print {
+        .tabs,
+        .route-detail {
+          display: none;
+        }
+        .panel[hidden] {
+          display: block !important;
+        }
+        .panel {
+          break-before: page;
+        }
+        .panel:first-of-type {
+          break-before: auto;
+        }
+        .card,
+        .repo,
+        .step {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav class="tabs" role="tablist" aria-label="架构视图">
+        <button
+          class="tab"
+          id="tab-topology"
+          role="tab"
+          aria-selected="true"
+          aria-controls="topology"
+          data-tab="topology"
+        >
+          整体链路
+        </button>
+        <button
+          class="tab"
+          id="tab-packages"
+          role="tab"
+          aria-selected="false"
+          aria-controls="packages"
+          tabindex="-1"
+          data-tab="packages"
+        >
+          包与职责
+        </button>
+        <button
+          class="tab"
+          id="tab-lifecycle"
+          role="tab"
+          aria-selected="false"
+          aria-controls="lifecycle"
+          tabindex="-1"
+          data-tab="lifecycle"
+        >
+          建连与恢复
+        </button>
+        <button
+          class="tab"
+          id="tab-deployment"
+          role="tab"
+          aria-selected="false"
+          aria-controls="deployment"
+          tabindex="-1"
+          data-tab="deployment"
+        >
+          部署与状态
+        </button>
+      </nav>
+
+      <section class="panel" id="topology" role="tabpanel" aria-labelledby="tab-topology">
+        <p class="intro">
+          <strong>两端保留业务与身份，底层选择可用的数据路径。</strong><br /><span class="muted small"
+            >当前：可达直连 → WSS Relay。计划先借助加密 Relay 建连，再由两端确认切换到 P2P。</span
+          >
+        </p>
+        <div class="legend" aria-label="实现状态图例">
+          <span><i></i>已有实现</span><span><i class="future"></i>计划：P2P</span
+          ><span><i class="optional"></i>可选：尚未接入</span>
+        </div>
+
+        <div class="topology" id="network-diagram">
+          <svg class="connectors" id="connectors" aria-hidden="true"></svg>
+          <div class="endpoints">
+            <article class="card endpoint" id="desktop-node">
+              <h3>Cherry Studio 桌面</h3>
+              <p class="muted small">Electron · Main 进程</p>
+              <div class="owner">
+                <strong>连接 / 授权 owner</strong><br /><code>RemoteAccessService</code>
+              </div>
+              <div class="layer">
+                <strong>业务与本地状态</strong>Agent、配置、任务结果<br />身份、配对、grants
+              </div>
+              <div class="layer">
+                <strong><code>remote-protocol</code></strong
+                >业务 RPC 与共享契约
+              </div>
+              <div class="layer security">
+                <strong><code>remote-transport</code></strong
+                >Noise 身份验证与加密
+              </div>
+              <div class="port" id="desktop-port">
+                <strong>↕ MessageStream</strong><br />直连 / Relay / P2P 适配
+              </div>
+              <div class="native">
+                <span class="tag plan">计划</span> <code>node-datachannel</code><br />原生引擎只运行在端侧
+              </div>
+            </article>
+            <article class="card endpoint" id="app-node">
+              <h3>Cherry Studio App</h3>
+              <p class="muted small">React Native · iOS / Android</p>
+              <div class="owner">
+                <strong>选路 / 重连 owner</strong><br /><code>DesktopConnectionManager</code>
+              </div>
+              <div class="layer">
+                <strong>UI 与 DesktopSession</strong>请求、订阅、恢复业务状态<br />保存配对与已验证地址
+              </div>
+              <div class="layer">
+                <strong><code>remote-protocol</code></strong
+                >相同的业务 RPC 契约
+              </div>
+              <div class="layer security">
+                <strong><code>remote-transport</code></strong
+                >相同的 Noise 安全通道
+              </div>
+              <div class="port" id="app-port">
+                <strong>↕ MessageStream</strong><br />直连 / Relay / P2P 适配
+              </div>
+              <div class="native">
+                <span class="tag plan">计划</span> <code>react-native-webrtc</code><br />原生引擎只运行在端侧
+              </div>
+            </article>
+          </div>
+          <div class="routes" aria-label="点击查看每条数据路径">
+            <button class="card route" data-route="direct" aria-pressed="false">
+              <span class="row-heading"
+                ><strong>可达直连 · WebSocket</strong><span class="tag current">已有</span></span
+              >
+              <span class="small muted">局域网、VPN 或已配置的可达地址；直接连接桌面。</span>
+            </button>
+            <button class="card route planned" data-route="p2p" aria-pressed="false">
+              <span class="row-heading"
+                ><strong>P2P · WebRTC DataChannel</strong><span class="tag plan">计划</span></span
+              >
+              <span class="small muted">ICE 选出的直连路径；可靠有序的二进制数据，不启用音视频。</span>
+            </button>
+            <button class="card route" data-route="relay" aria-pressed="false">
+              <span class="row-heading"
+                ><strong>WSS Relay · 加密引导与兜底</strong><span class="tag current">已有</span></span
+              >
+              <span class="small muted">桌面 ⇄ Relay runtime ⇄ App；会合、DATA / ACK、流控与清理。</span>
+            </button>
+          </div>
+        </div>
+        <div class="note route-detail" id="route-detail" role="status" aria-live="polite">
+          点击任意路径可查看职责。所有路径都向上提供 <code>MessageStream</code>；业务 RPC
+          不因路径改变而换协议。
+        </div>
+
+        <div class="two support">
+          <article class="card planned">
+            <span class="tag plan">P2P 建连阶段</span>
+            <h3>端到端加密信令</h3>
+            <p>
+              桌面 ⇄ 已认证的 Noise 通道 ⇄ App<br />SDP / ICE 由两端处理。Relay
+              只转发密文；协商与切换由现有产品 owner 管理。
+            </p>
+          </article>
+          <article class="card planned">
+            <span class="tag plan">客户端配置 · 自建可选</span>
+            <h3>STUN · 可使用已有服务</h3>
+            <p>
+              桌面 / App ⇄ 配置的 STUN<br />帮助发现公网映射；无需额外部署 P2P server。自建可选
+              coturn，打洞失败保留 Relay。
+            </p>
+          </article>
+        </div>
+        <div class="note security-line">
+          <span class="lock" aria-hidden="true">◇</span>
+          <p>
+            <strong>Noise 端到端安全覆盖三条数据路径。</strong><br />会合票据、SDP/ICE
+            或账号登录都不授予桌面业务权限；配对审批与 grants 仍在端侧执行。
+          </p>
+        </div>
+
+        <p class="section-label">独立的可选服务 · 不属于 Relay 的必需依赖</p>
+        <div class="two optional-zone">
+          <article class="card optional-card">
+            <h3>统一账号 / 后台认证</h3>
+            <p>产品 ⇄ 凭证后端 ⇄ 自有数据库</p>
+            <p class="muted">
+              将来如需限制 Relay
+              接入，再提供独立的准入策略。账号登录与数据库查询不进入转发循环；开源自建可独立运行。
+            </p>
+          </article>
+          <article class="card optional-card">
+            <h3>后台推送</h3>
+            <p>桌面业务事件 → 通知网关<br />→ APNs / FCM → App</p>
+            <p class="muted">推送只提示状态变化；App 重连后回查结果。Relay 不解析密文来判断任务完成。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" id="packages" role="tabpanel" aria-labelledby="tab-packages" hidden>
+        <p class="intro">
+          <strong>P2P 归端侧传输层；Relay 保留独立的中继能力。</strong><br /><span class="muted small"
+            >源码同仓与进程部署分开看：共享 P2P 适配在 Desktop 仓库，随桌面 / App 发布。</span
+          >
+        </p>
+        <article class="card repo">
+          <div class="repo-label">源码仓库 · <code>cherry-studio</code> ／ 两端共同消费</div>
+          <div class="package-grid">
+            <div class="package">
+              <h3><code>remote-protocol</code></h3>
+              <p>业务 RPC、Agent / 配置、配对 / grants、QR 与地址描述。</p>
+              <p class="small muted">计划仅增加 hello 可选端侧能力标记；SDP / ICE 控制格式归传输子入口。</p>
+            </div>
+            <div class="package">
+              <h3><code>remote-transport</code></h3>
+              <p>Noise / Ed25519、安全记录与 RPC 传输辅助。</p>
+              <p class="small muted">业务身份与授权决策由产品执行；主入口不顺带加载 P2P。</p>
+            </div>
+          </div>
+          <p class="dependency">
+            <code>remote-transport → remote-protocol</code>；两端继续使用相同业务契约。
+          </p>
+        </article>
+        <div class="stack-arrow">↕</div>
+        <div class="contract">
+          <strong>MessageStream · 双向字节流接口</strong>
+          <p class="small muted gap">直连 WebSocket、P2P 与 Relay 提供同一流契约。</p>
+        </div>
+        <div class="stack-arrow">↕</div>
+        <div class="two">
+          <article class="card planned">
+            <div class="repo-label">Desktop 仓库 · 计划子入口</div>
+            <h3><code>remote-transport/p2p</code></h3>
+            <p class="gap small">信令校验、一次协商、<code>DataChannelStream</code>、分块与背压。</p>
+            <p class="small muted gap">
+              注入原生引擎与信令接口；不依赖 Relay 包、云厂商或账号。产品接线到现有加密通道。
+            </p>
+          </article>
+          <article class="card">
+            <div class="repo-label">Relay 仓库 · 原有两个包</div>
+            <h3><code>relay-client</code></h3>
+            <p class="gap small">connect / attach、<code>RelayStream</code> 与流控。</p>
+            <p class="small gap">↓ <code>relay-protocol</code><br />会合、票据、DATA / ACK 和关闭语义。</p>
+            <p class="small muted gap">不增加 P2P 子入口或 SDP / ICE 扩展。</p>
+          </article>
+        </div>
+        <div class="two gap">
+          <article class="card planned">
+            <h3>桌面原生适配</h3>
+            <p class="gap">
+              <code>p2pAdapter.ts</code><br />↓ 注入 P2P 子入口<br /><code>node-datachannel</code>
+            </p>
+            <p class="small muted gap"><code>RemoteAccessService</code> 管身份、授权、候选门禁和切换确认。</p>
+          </article>
+          <article class="card planned">
+            <h3>App 原生适配</h3>
+            <p class="gap">
+              <code>p2pAdapter.ts</code><br />↓ 注入 P2P 子入口<br /><code>react-native-webrtc</code>
+            </p>
+            <p class="small muted gap">
+              <code>DesktopConnectionManager</code> 管本轮选择、预算、AppState 和重连。
+            </p>
+          </article>
+        </div>
+        <div class="note gap">
+          <strong>Relay runtime 无需为 P2P 改动。</strong><br /><code>src/core</code> 保留会合与转发；Bun / DO
+          保留现有 socket、限额和恢复逻辑。加密信令对 runtime 只是普通密文字节，不新增能力接口、选路状态或 DO
+          快照字段。
+        </div>
+        <div class="note gap">
+          <strong>QR 仍描述可达入口。</strong><br /><code>remote-protocol</code> 中的
+          <code>RelayEndpoint { origin, targetId }</code> 继续随 QR / 已验证地址同步。临时
+          SDP、ICE、协商关联值由端侧 P2P 子入口处理，不进入长期地址存储。
+        </div>
+      </section>
+
+      <section class="panel" id="lifecycle" role="tabpanel" aria-labelledby="tab-lifecycle" hidden>
+        <p class="intro">
+          <strong>先建立安全 Relay 通道，再由端侧尝试 P2P。</strong><br /><span class="muted small"
+            >首版只在已配对设备的新连接交给业务层之前尝试一次。首次配对沿用原路径。</span
+          >
+        </p>
+        <div class="card selection">direct 优先 <span>→</span> 安全 Relay <span>→</span> 可选 P2P</div>
+        <div class="flow">
+          <div class="rail"><div class="number">1</div></div>
+          <div class="step">
+            <h3>先尝试现有 direct</h3>
+            <p>App 使用可达地址；直连成功即交付业务。不可达时，按原样 v1 完成 Relay 会合与 ready。</p>
+          </div>
+          <div class="rail"><div class="number">2</div></div>
+          <div class="step">
+            <h3>Relay 上完成 Noise、hello 和设备认证</h3>
+            <p>
+              新桌面在 hello 声明可选 <code>connectionP2PVersion</code>。任一端不支持或未启用，继续
+              Relay；服务器无需声明 P2P 能力。
+            </p>
+          </div>
+          <div class="rail"><div class="number">3</div></div>
+          <div class="step card planned">
+            <h3>两端通过加密通道协商</h3>
+            <p>
+              App 发 offer，桌面发 answer；SDP / ICE
+              作为加密控制消息交换，绑定父连接、两端身份、代际和一次性关联值。两端直接访问配置的 STUN。
+            </p>
+            <p class="small muted">Relay 看不到信令明文；通用 P2P 子入口接受注入的信令收发接口。</p>
+          </div>
+          <div class="rail"><div class="number">4</div></div>
+          <div class="step card planned">
+            <h3>候选 DataChannel 重新建立 Noise 与授权</h3>
+            <p>
+              新 MessageStream 固定同一端点身份，再次
+              hello、认证并校验关联值。候选只开放握手、授权和切换控制，尚不接受业务 RPC。
+            </p>
+          </div>
+          <div class="rail"><div class="number">5</div></div>
+          <div class="step card planned">
+            <h3>产品 owner 确认唯一业务路径</h3>
+            <p>App 发起切换，桌面串行校验并确认；提交后旧路径停止业务，双方完成确认才交付新通道。</p>
+            <div class="decision">
+              <div>
+                <strong>P2P 提交成功</strong><br />交付新安全通道<br />→ 释放本次 Relay 数据连接<br />→
+                保留桌面 listener
+              </div>
+              <div>
+                <strong>提交前连通性失败</strong><br />清理候选<br />→ 交付已认证的 Relay<br />→ 不重复会合
+              </div>
+            </div>
+            <p class="small muted gap">
+              确认结果不确定：关闭本轮并重连。身份不符或授权撤销：终止，不能用回退绕过。
+            </p>
+          </div>
+          <div><div class="number">6</div></div>
+          <div class="step">
+            <h3>业务与恢复保持原有 owner</h3>
+            <p>
+              一次只交付一条业务路径。已运行的 RPC / 订阅不做热迁移；真正断线重连、新建
+              Noise，再恢复业务状态，不重放命令。已建立的 P2P 不依赖 Relay 持续在线。
+            </p>
+          </div>
+        </div>
+        <div class="note">
+          <strong>原有 15 秒预算包含两次 Noise。</strong>有 Relay 时 direct 最多 5 秒；P2P 尝试初始最多 3
+          秒，覆盖 ICE、新 Noise / 授权和切换。预留至少 1 秒回退与清理，不够就交付 Relay；参数待实测。
+        </div>
+        <p class="section-label">性能边界</p>
+        <div class="two">
+          <article class="card metric">
+            <strong>二进制 + 有界背压</strong>
+            <p>
+              现有 WSS DATA 最大 64 KiB；P2P 初始拟 ≤ 16 KiB /
+              消息。分别限制应用队列、桥接在途和原生缓冲，计入旧流与候选并存的峰值。
+            </p>
+          </article>
+          <article class="card metric planned">
+            <strong>目标是减少中继流量</strong>
+            <p>
+              首连要支付 Relay 引导和额外 Noise 的成本。真实验证 1 MiB、慢读、换网、后台与功耗；RN 桥可能使用
+              Base64，不承诺零拷贝或更快建连。
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel" id="deployment" role="tabpanel" aria-labelledby="tab-deployment" hidden>
+        <p class="intro">
+          <strong>混合云只适配 Relay runtime；三种入口按部署选择。</strong><br /><span class="muted small"
+            >已有实现与本地验证；生产云部署、容量和移动原生验收仍待完成。</span
+          >
+        </p>
+        <div class="card public-entry">
+          <code>wss://&lt;部署域名&gt;/v1/relay</code><br /><span class="small muted"
+            >同一会话的双方必须到达同一 owner；一个 runtime 可服务多设备、多会话。</span
+          >
+        </div>
+        <div class="deployments">
+          <article class="card">
+            <span class="tag current">已有</span>
+            <h3>Docker 自建</h3>
+            <div class="hop">TLS 反向代理<br /><b>Caddy / 自有入口</b></div>
+            <div class="hop-arrow">↓</div>
+            <div class="hop"><b>Bun runtime</b>同一 Relay 镜像</div>
+            <p class="small muted gap">在线映射与会话在内存。重启后客户端重连。</p>
+          </article>
+          <article class="card">
+            <span class="tag current">已有</span>
+            <h3>Cloudflare Tunnel</h3>
+            <div class="hop">Cloudflare 入口<br /><b>cloudflared</b></div>
+            <div class="hop-arrow">↓</div>
+            <div class="hop"><b>Bun runtime</b>同一 Docker 服务</div>
+            <p class="small muted gap">Tunnel 提供 HTTP / WSS 入口；runtime 仍是 Bun。</p>
+          </article>
+          <article class="card">
+            <span class="tag current">已有</span>
+            <h3>Workers / DO</h3>
+            <div class="hop"><b>Worker</b>升级与路由</div>
+            <div class="hop-arrow">↓</div>
+            <div class="hop"><b>Relay Durable Object</b>多 target / 多 session</div>
+            <p class="small muted gap">WebSocket 休眠 + 最小 attachment 恢复；不再经过 Bun。</p>
+          </article>
+        </div>
+        <div class="card planned gap">
+          <div class="row-heading">
+            <h3>STUN 由客户端配置</h3>
+            <span class="tag plan">配置计划 · 自建可选</span>
+          </div>
+          <p class="small">
+            优先使用已有 STUN 服务；需要完全自建时，可选 coturn <code>stun-only</code> 和公网 UDP 入口。
+            两端直接访问，地址不由 Relay 下发。Bun / DO 不运行 STUN，基础镜像和 Compose 不增加它。
+          </p>
+          <p class="small muted">
+            无需新增 P2P 或信令服务。自建 STUN 不走现有 HTTP/WSS Tunnel；不可达时继续 Relay。TURN
+            未纳入首版，Vercel 仍暂缓。
+          </p>
+        </div>
+
+        <p class="section-label">状态放在哪里</p>
+        <table class="state-table">
+          <thead>
+            <tr>
+              <th scope="col">归属</th>
+              <th scope="col">内容</th>
+              <th scope="col">保存方式</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>桌面</td>
+              <td>身份、配对 / grants、Relay 入口密钥、业务任务和结果</td>
+              <td>端侧持久存储</td>
+            </tr>
+            <tr>
+              <td>App</td>
+              <td>本机身份、配对、已验证的桌面 / Relay 地址</td>
+              <td>端侧持久存储</td>
+            </tr>
+            <tr>
+              <td>端侧 P2P · 计划</td>
+              <td>协商代际、关联值、候选和暂存信令；开关与 STUN 地址</td>
+              <td>协商只在内存；配置可持久保存</td>
+            </tr>
+            <tr>
+              <td>Bun runtime</td>
+              <td>在线映射、socket、临时票据、session、资源计数</td>
+              <td>有界内存；重启失效</td>
+            </tr>
+            <tr>
+              <td>DO runtime</td>
+              <td>上述连接状态的最小恢复快照；角色、代际、期限、计数</td>
+              <td>socket attachment + alarm；无业务数据库</td>
+            </tr>
+            <tr>
+              <td>账号后端 · 可选</td>
+              <td>账号凭证、组织 / 权益、后台认证</td>
+              <td>独立后端自己的数据库</td>
+            </tr>
+            <tr>
+              <td>通知网关 · 可选</td>
+              <td>推送配置、必要时的通知 outbox</td>
+              <td>独立服务；不放 Relay</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="note gap">
+          <strong>休眠恢复 ≠ 消息持久化。</strong><br />DO 保留
+          socket，并恢复继续转发所需的最小状态；加密信令和其他数据走相同路径，不增加 P2P 快照。
+          不存账号、业务结果或密文待发队列。真正断线仍由产品重连。
+        </div>
+        <details>
+          <summary>会话、账号、实例之间的关系</summary>
+          <p>
+            一个 runtime 实例处理多个桌面 target
+            和多个短期会话，不是“一个用户一个实例”。账号不是路由分片键；现有 DO 使用部署内共享的 Relay
+            对象。将来多实例扩容须显式保证会合两端落在同一个 owner，不能随机负载均衡后假定内存状态共享。
+          </p>
+        </details>
+      </section>
+      <p class="footer">
+        依据本地实现与 2026-11-04 P2P 方案。实线代表代码已有，不代表已上线；虚线功能、原生库兼容性与 P2P
+        性能仍待验证。点击路径可聚焦；用上方页签查看其余架构层。
+      </p>
+    </main>
+    <script>
+      ;(() => {
+        const tabs = Array.from(document.querySelectorAll('[role="tab"]'))
+        const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'))
+        function activate(tab) {
+          tabs.forEach((item) => {
+            const active = item === tab
+            item.setAttribute('aria-selected', String(active))
+            item.tabIndex = active ? 0 : -1
+          })
+          panels.forEach((panel) => {
+            panel.hidden = panel.id !== tab.dataset.tab
+          })
+          requestAnimationFrame(draw)
+        }
+        tabs.forEach((tab, index) => {
+          tab.addEventListener('click', () => activate(tab))
+          tab.addEventListener('keydown', (event) => {
+            let next = index
+            if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+            else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length
+            else if (event.key === 'Home') next = 0
+            else if (event.key === 'End') next = tabs.length - 1
+            else return
+            event.preventDefault()
+            activate(tabs[next])
+            tabs[next].focus()
+          })
+        })
+        const routeInfo = {
+          direct:
+            '直连：App 直接连接桌面的可达 WebSocket 入口，不经过 Relay。现有 LAN / VPN / 用户配置的地址均按可达性尝试；通道上仍做 Noise 和业务认证。',
+          p2p: 'P2P（计划）：先通过已认证的 Relay 通道交换加密信令，再建立 DataChannel、新 Noise 和设备授权。端侧确认切换后释放旧数据通道；runtime 保持原样，STUN 自建可选。',
+          relay:
+            'Relay：桌面和 App 都向 runtime 建立出站 WSS。runtime 转发有界二进制帧并处理背压，只看到密文；业务解密、配对和权限检查都在端侧。',
+        }
+        const routes = Array.from(document.querySelectorAll('.route'))
+        let selectedRoute = null
+        routes.forEach((route) =>
+          route.addEventListener('click', () => {
+            selectedRoute = selectedRoute === route.dataset.route ? null : route.dataset.route
+            routes.forEach((item) => {
+              item.setAttribute('aria-pressed', String(item.dataset.route === selectedRoute))
+              item.classList.toggle(
+                'route-dim',
+                selectedRoute !== null && item.dataset.route !== selectedRoute,
+              )
+            })
+            document.getElementById('route-detail').textContent = selectedRoute
+              ? routeInfo[selectedRoute]
+              : '点击任意路径可查看职责。所有路径都向上提供 MessageStream；业务 RPC 不因路径改变而换协议。'
+            draw()
+          }),
+        )
+        function draw() {
+          if (document.getElementById('topology').hidden) return
+          const root = document.getElementById('network-diagram')
+          const svg = document.getElementById('connectors')
+          const bounds = root.getBoundingClientRect()
+          if (!bounds.width) return
+          const left = document.getElementById('desktop-node').getBoundingClientRect()
+          const right = document.getElementById('app-node').getBoundingClientRect()
+          const lx = left.left + left.width / 2 - bounds.left
+          const rx = right.left + right.width / 2 - bounds.left
+          const ly = left.bottom - bounds.top
+          const ry = right.bottom - bounds.top
+          const compact = bounds.width < 500
+          svg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`)
+          const colors = [
+            'var(--chart-2, Highlight)',
+            'var(--chart-3, Highlight)',
+            'var(--chart-1, Highlight)',
+          ]
+          const defs = colors
+            .map(
+              (color, i) =>
+                `<marker id="arrow-${i}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 1 1 L 8 5 L 1 9" fill="none" stroke="${color}" stroke-width="1.5"/></marker>`,
+            )
+            .join('')
+          const paths = routes
+            .map((route, i) => {
+              const box = route.getBoundingClientRect()
+              const y = box.top + box.height / 2 - bounds.top
+              const x1 = box.left - bounds.left
+              const x2 = box.right - bounds.left
+              const gutter = (compact ? 5 : 16) + i * (compact ? 4 : 9)
+              const shelf = 6 + i * 6
+              const dash = route.dataset.route === 'p2p' ? 'stroke-dasharray="5 4"' : ''
+              const opacity = selectedRoute && route.dataset.route !== selectedRoute ? '.15' : '.75'
+              return `<g fill="none" stroke="${colors[i]}" stroke-width="1.6" ${dash} opacity="${opacity}"><path d="M ${lx} ${ly} V ${ly + shelf} H ${gutter} V ${y} H ${x1 - 2}" marker-start="url(#arrow-${i})" marker-end="url(#arrow-${i})"/><path d="M ${rx} ${ry} V ${ry + shelf} H ${bounds.width - gutter} V ${y} H ${x2 + 2}" marker-start="url(#arrow-${i})" marker-end="url(#arrow-${i})"/></g>`
+            })
+            .join('')
+          svg.innerHTML = `<defs>${defs}</defs>${paths}`
+        }
+        new ResizeObserver(draw).observe(document.getElementById('network-diagram'))
+        window.addEventListener('resize', draw)
+        requestAnimationFrame(draw)
+      })()
+    </script>
+  </body>
+</html>

@@ -1,7 +1,7 @@
 # Relay runtime 混合云适配
 
-日期：2026-11-04。混合云范围仅限 Relay runtime；用户凭证服务独立。
-当前 Bun runtime 已通过本地真实 socket 验证，尚无任何云平台的生产部署验收。
+日期：2026-11-05。混合云范围仅限 Relay runtime；用户凭证服务独立。
+各入口的实际验证范围见[部署记录](deployment-status.md)，平台评估不等于部署验收。
 
 ## 1. 最小部署方式
 
@@ -63,3 +63,10 @@ Vercel 按当前决定暂缓。2026-11-04 核对的[官方 WebSocket 文档](htt
 测试记录连接驻留、实际出口流量、内部转发和平台调用次数。
 数据热路径不远程查询账号或数据库；如增加 broker/代理跳转，需要额外说明它解决的问题、延迟与成本。
 本机回环成功不代表跨云性能或费用已经可接受。
+
+## 5. EdgeOne 全托管
+
+目标是不保留源站，由 EdgeOne 承载完整 Relay runtime。当前仍在[原生托管能力验证](edgeone-native-hosting.md)
+阶段：Node Functions 的 WebSocket 接入与 Agents 的会话亲和属于不同运行入口，尚未验证二者能组合
+承载 listener/connect/attach 三条独立连接。只有同时通过同实例会合、有界发送及生命周期检查后，
+才添加实际适配器和部署配置。站点 WSS 加速、外接 Docker 或 Cloudflare 源站不算完成此目标。

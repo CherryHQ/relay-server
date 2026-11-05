@@ -23,6 +23,9 @@ R1 的包验证见[首批记录](r1-implementation-status.md)，runtime 的实�
 3. Docker、Caddy 和 Cloudflare Tunnel 模板已实现，继续完成正式域名与跨网产品自建闭环；见[部署记录](deployment-status.md)。
 4. Workers + Durable Objects 已实现休眠恢复、随机收包回执、部署模板和本地 workerd 验证；
    接着完成客户端依赖更新及正式账户部署/容量验收。Vercel 继续暂缓。
+5. [P2P 数据直连方案](p2p-implementation-plan.md)已细化：先验证两端现成库与 Noise 互通，
+   再交付 `remote-transport/p2p` 端侧子入口、加密信令和现有产品 owner 的切换接线。
+   使用未改动的 Relay 验证跨网兼容，STUN 由客户端配置、自建可选；不增加 Bun/DO 信令功能。当前仅为方案。
 
 runtime 已具备有界内存会合与转发，后续接入不以持久状态迁移、设备登记后台、管理 CLI 或全局配额账本为前置。
 现有 proof helper 保留为可选工具，不因它已经存在就补造一套依赖服务。
@@ -42,8 +45,8 @@ R3 至少证明：未知远端身份被拒绝、配对由桌面批准、重启/�
 
 - [用户策略接入](saas-auth-integration-plan.md)：需要账号权益时再实现，runtime 保持可独立运行。
 - [后台推送](performance-and-operations-plan.md#4-可选后台推送)：独立模块，先具备业务状态恢复，再验证通知投递。
-- Tailcat/P2P：在真实端点验证连通性、回退和实际转发流量收益后决定采用。
-- WebRTC/媒体：出现具体产品需求再设计，不加入基础 WSS 部署。
+- P2P 数据直连：按上述方案验证 DataChannel 库；Tailcat 保留为备选，不同时建设两套后端。
+- 音视频媒体：出现具体产品需求再设计；使用 DataChannel 不代表引入音视频。
 - 数据库、跨实例 broker 或持久管理能力：只有明确需求和部署证据后再引入。
 
 免费提供是可选运营策略。首版保留运行资源限制和成本观测，收费与套餐不进入交付依赖。

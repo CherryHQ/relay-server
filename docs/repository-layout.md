@@ -95,6 +95,11 @@ Vercel 暂缓，没有创建占位 adapter。
 
 ## 4. 后续文件的建立条件
 
+[P2P 方案](p2p-implementation-plan.md#2-文件组织)放在 Desktop 仓库的 `remote-transport/p2p` 子入口，
+由 Desktop/App 共享，原生适配器留在各产品。`remote-protocol` 只增加可选端侧能力声明；
+信令在现有加密通道内传递。这里的两个 Relay 包、runtime 和部署不因 P2P 增加实现。
+STUN 地址由客户端配置，自建仅提供可选指引，不预建 `deploy/stun/`。P2P 文件尚未创建。
+
 同类云 VM/容器优先增加部署配置。出现第二种实际运行环境时，再增加其 runtime 入口和生命周期测试。
 为满足平台休眠或寻址确有必要的状态由该适配器负责，不预建跨厂商持久存储接口。
 

@@ -20,18 +20,18 @@ DO 仅使用 socket 附属状态和 alarm。
 
 ## 已运行的检查
 
-| 检查 | 结果与范围 |
-| --- | --- |
-| 根工程 `bun run verify` | 73 项测试通过，构建、类型检查、格式、lint、离线包消费者检查通过 |
-| Linux ARM64 镜像 | 在隔离 Colima/Docker 环境实际运行；非 root、只读、health、双向各 1 MiB、正常关闭、SIGTERM 退出码 0 和重启后再次会合通过 |
-| Linux AMD64 镜像 | 交叉构建通过；本机 QEMU 运行时缺少 AVX，Bun HEALTHCHECK 崩溃，未记为运行通过 |
-| Compose | local、Caddy、Tunnel 三组组合均通过 `config --quiet` |
-| Caddy | 实际镜像通过配置校验；本机 HTTP 反向代理入口的健康、会合、双向各 1 MiB 和关闭通过 |
-| Cloudflare 数据路径 | 临时 Quick Tunnel 经真实公网 WSS 完成同一 smoke；connector readiness 检查通过；测试后关闭临时入口 |
-| Workers/DO 打包 | Wrangler dry-run 通过 |
-| Workers/DO 本地执行 | workerd 完成双向各 1 MiB DATA/ACK；强制休眠后 constructor 重跑，原 socket/epoch 保留，票据重放和伪造 ACK 被拒绝；同一 Noise 通道跨休眠完成 1 MiB 上传和反向响应；关闭后连接与预算归零 |
-| Workers/DO 生产入口 | 已部署到 CherryAI 账号的 <https://cherry-relay.cherryai.workers.dev>；公网健康检查、会话会合、双向各 1 MiB DATA/ACK 和关闭流程通过 |
-| Workers/DO 自动部署 | `main` 已连接 Cloudflare Workers Builds，验证成功后发布；命令和构建变量见 [Workers 部署说明](../deploy/cloudflare/README.md#github-自动部署)，每次执行结果以对应提交的云端构建记录为准 |
+| 检查                    | 结果与范围                                                                                                                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 根工程 `bun run verify` | 73 项测试通过，构建、类型检查、格式、lint、离线包消费者检查通过                                                                                                                        |
+| Linux ARM64 镜像        | 在隔离 Colima/Docker 环境实际运行；非 root、只读、health、双向各 1 MiB、正常关闭、SIGTERM 退出码 0 和重启后再次会合通过                                                                |
+| Linux AMD64 镜像        | 交叉构建通过；本机 QEMU 运行时缺少 AVX，Bun HEALTHCHECK 崩溃，未记为运行通过                                                                                                           |
+| Compose                 | local、Caddy、Tunnel 三组组合均通过 `config --quiet`                                                                                                                                   |
+| Caddy                   | 实际镜像通过配置校验；本机 HTTP 反向代理入口的健康、会合、双向各 1 MiB 和关闭通过                                                                                                      |
+| Cloudflare 数据路径     | 临时 Quick Tunnel 经真实公网 WSS 完成同一 smoke；connector readiness 检查通过；测试后关闭临时入口                                                                                      |
+| Workers/DO 打包         | Wrangler dry-run 通过                                                                                                                                                                  |
+| Workers/DO 本地执行     | workerd 完成双向各 1 MiB DATA/ACK；强制休眠后 constructor 重跑，原 socket/epoch 保留，票据重放和伪造 ACK 被拒绝；同一 Noise 通道跨休眠完成 1 MiB 上传和反向响应；关闭后连接与预算归零  |
+| Workers/DO 生产入口     | 已部署到 CherryAI 账号的 <https://cherry-relay.cherryai.workers.dev>；公网健康检查、会话会合、双向各 1 MiB DATA/ACK 和关闭流程通过                                                     |
+| Workers/DO 自动部署     | `main` 已连接 Cloudflare Workers Builds，验证成功后发布；命令和构建变量见 [Workers 部署说明](../deploy/cloudflare/README.md#github-自动部署)，每次执行结果以对应提交的云端构建记录为准 |
 
 AMD64 的本机失败属于已观察到的模拟环境限制：Bun 报告 `CPU lacks AVX support`，
 不能据此宣布 AMD64 运行验证成功或忽略失败。已加入 `ubuntu-latest` 原生 AMD64 容器 CI，
@@ -48,3 +48,10 @@ smoke 使用生成的测试字节，不是吞吐量基准，也不证明客户�
 3. 接入桌面与 App，完成跨网配对、配置导入、换网、前后台恢复及撤销测试。
 
 生产容量和费用按实际连接驻留、出口流量、CPU/内存测量，不从上述 smoke 推导。
+
+## EdgeOne 原生托管评估（2026-11-05）
+
+用户选定完整 EdgeOne 托管、不保留源站。已核对 Node Functions WebSocket 示例、Agents 会话
+亲和文档及 CLI 1.6.47 的两套运行入口；尚未证明 Agents 能同时承载 Relay 所需的三条 WebSocket。
+最小本地验证在 CLI 认证阶段被阻挡，未形成运行或部署通过记录。具体差异、验证步骤和适配范围见
+[EdgeOne 原生托管评估](edgeone-native-hosting.md)。当前不列入已支持的部署方式。

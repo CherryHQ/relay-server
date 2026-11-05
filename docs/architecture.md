@@ -2,6 +2,8 @@
 
 日期：2026-11-04。首版范围为最小 WSS runtime；已实现的包、Bun 服务与验证见[R2 记录](r2-implementation-status.md)。
 
+[交互式完整架构图](architecture-diagram.html)：整体链路、包与职责、连接与恢复、部署与状态；区分现有实现、计划中的 P2P 和可选服务。
+
 ## 1. 目标与职责
 
 让无法直接互连的 Cherry Studio 桌面与 App 通过公网 WSS 交换密文字节。
@@ -67,7 +69,11 @@ runtime 还需要独立限制连接数、会合请求速率、待接入数量、
 
 账号权益如有实际需求，再接[可选策略](saas-auth-integration-plan.md)，不让产品登录或数据库进入转发循环。
 [后台推送](performance-and-operations-plan.md#4-可选后台推送)独立于数据通道，由桌面业务事件触发。
-Tailcat/P2P、WebRTC/媒体、跨云迁移按明确需求单独验证，不作为本轮前置。
+[P2P 数据直连](p2p-implementation-plan.md)按现成 DataChannel 库做下一批增量验证，
+共享适配归 `remote-transport/p2p`、原生库在两端。首版通过已认证的加密 Relay 通道交换端侧信令，
+P2P 新流重新完成 Noise/授权后由产品确认切换；runtime 和 Relay 协议保持原样。
+STUN 地址由客户端配置，自建服务可选；当前 P2P 尚未实现，不作为基础 WSS 运行的前置。
+媒体与跨云迁移仍按明确需求单独验证。
 
 ## 6. 当前证据与待验证项
 
