@@ -53,5 +53,11 @@ smoke 使用生成的测试字节，不是吞吐量基准，也不证明客户�
 
 用户选定完整 EdgeOne 托管、不保留源站。已核对 Node Functions WebSocket 示例、Agents 会话
 亲和文档及 CLI 1.6.47 的两套运行入口；尚未证明 Agents 能同时承载 Relay 所需的三条 WebSocket。
-最小本地验证在 CLI 认证阶段被阻挡，未形成运行或部署通过记录。具体差异、验证步骤和适配范围见
+已实现[原生探测工程](../deploy/edgeone/README.md)，含独立构建、两个平台入口、双会话二进制
+检查以及 8 项回归；本地回调宿主通过，根工程共 84 项测试通过，CLI 配置校验通过。
+已通过 CLI 认证并启动 Cloud Functions 原生本地入口；补齐 wrapper 所需 `ws` 后，
+listener 握手成功，但同会话 app 连接返回 404，三连接会合未通过。CLI 逐请求重新初始化
+模块，不能用模块内 Map 保留 listener。Agents 项目创建返回 `Zone is not active`，
+尚未运行，其 HTTP wrapper 也尚未满足 WebSocket 升级契约；没有云端部署通过记录。
+具体差异、验证步骤和适配范围见
 [EdgeOne 原生托管评估](edgeone-native-hosting.md)。当前不列入已支持的部署方式。

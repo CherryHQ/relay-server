@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.tools.json",
+  "include": ["src/edgeone/**/*.ts", "deploy/edgeone/probe/**/*.ts"]
+}

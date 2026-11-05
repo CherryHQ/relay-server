@@ -13,10 +13,12 @@
     "start": "bun src/bun/main.ts",
     "build": "bun scripts/build-packages.ts",
     "build:runtime": "bun scripts/build-runtime.ts",
+    "build:edgeone-probe": "bun scripts/build-edgeone-probe.ts",
+    "check:edgeone-probe": "bun scripts/check-edgeone-probe.ts",
     "build:cloudflare": "bun run build && wrangler deploy --dry-run --config deploy/cloudflare/wrangler.jsonc --outdir \"$PWD/.context/cloudflare-build\"",
     "dev:cloudflare": "bun run build && wrangler dev --config deploy/cloudflare/wrangler.jsonc --local",
     "deploy:cloudflare": "bun run build && wrangler deploy --config deploy/cloudflare/wrangler.jsonc",
-    "typecheck": "bun check --no-script -p packages/relay-protocol/tsconfig.json && bun check --no-script -p packages/relay-client/tsconfig.json && bun check --no-script -p tsconfig.core.json && bun check --no-script -p tsconfig.runtime.json && bun check --no-script -p tsconfig.cloudflare.json && bun check --no-script -p tsconfig.tools.json",
+    "typecheck": "bun check --no-script -p packages/relay-protocol/tsconfig.json && bun check --no-script -p packages/relay-client/tsconfig.json && bun check --no-script -p tsconfig.core.json && bun check --no-script -p tsconfig.runtime.json && bun check --no-script -p tsconfig.cloudflare.json && bun check --no-script -p tsconfig.edgeone.json && bun check --no-script -p tsconfig.tools.json",
     "lint": "biome lint src packages scripts tests && bun scripts/check-imports.ts",
     "format": "bun fmt src packages scripts tests *.json bunfig.toml .github deploy",
     "format:check": "bun fmt --check src packages scripts tests *.json bunfig.toml .github deploy",
@@ -26,7 +28,7 @@
     "check:container": "bun scripts/check-container.ts",
     "check:cloudflare": "bun run build && bun scripts/check-cloudflare.ts",
     "perf:baseline": "bun tests/performance/baseline.ts",
-    "verify": "bun run build && bun run typecheck && bun run format:check && bun run lint && bun run test && bun run check:packages"
+    "verify": "bun run build && bun run build:edgeone-probe && bun run typecheck && bun run format:check && bun run lint && bun run test && bun run check:packages"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",

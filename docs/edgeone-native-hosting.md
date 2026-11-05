@@ -1,7 +1,8 @@
 # EdgeOne 原生托管评估
 
 核对日期：2026-11-05。目标是 **Relay runtime 全部托管到 EdgeOne，不保留源站**。
-当前状态：平台能力验证中，尚未交付 EdgeOne runtime 或部署配置。
+当前状态：已交付[原生探测工程](../deploy/edgeone/README.md)，平台能力验证中，
+尚未交付可用的 EdgeOne Relay runtime。
 
 ## 当前判断
 
@@ -19,6 +20,11 @@ WebSocket 请求，必须同时落到持有在线映射与会话的同一个实�
 Agents 是后续验证的候选，不能把 Cloud Functions 的 WebSocket 支持直接套用到 Agents。
 在核对的 CLI 1.6.47 中，Agents 使用独立的 HTTP server wrapper，经 `runtime.handle()`
 返回 HTTP 响应；该入口未找到 Node Functions 的 `response.websocket` 握手分支。
+其 `normalizeHandlerResponse` 将普通对象交给 `JSON.stringify`，回调对象会成为
+HTTP 200 JSON；这不是 WebSocket 101。`@edgeone/types@1.0.2` 还明确区分了
+Agents 的普通请求对象和 Cloud Functions 的 Web Request，探测入口已分别适配。
+本地抽取 CLI 中未改动的响应转换函数单独执行，探测回调对象得到 `200 application/json`
+和 `{"websocket":{}}`；这是响应契约检查，不是云端或完整 CLI 运行记录。
 这项源码检查不足以证明所有云端版本都不支持，但也不能据此交付一个可用的 Relay 适配器。
 另外，官方插件中的 `WebSocketPair` 示例与上述 CLI/语音模板使用的回调形式不一致，
 需以可复现的运行结果和正式接口说明确定实现。
@@ -49,8 +55,9 @@ Agents 是后续验证的候选，不能把 Cloud Functions 的 WebSocket 支持
 
 - 首版沿用每部署一个会话 owner 的范围，承载多个 target/session；不按账号创建实例。
   平台路由标识只负责寻址，不能当作设备身份或授权凭证。
-- `src/edgeone/` 负责平台入口、socket 事件、发送预算、计时和实例退出，复用 `src/core/`
-  的会话与流控逻辑。`deploy/edgeone/` 只在实际接口确认后添加可部署配置。
+- 正式适配在 `src/edgeone/` 负责平台入口、socket 事件、发送预算、计时和实例退出，复用
+  `src/core/` 的会话与流控逻辑。目前该目录仅有探测逻辑，`deploy/edgeone/probe/` 的配置
+  只供短期测试使用；不把探测协议或路由头写进正式 Relay 协议。
 - 协议包保持平台无关；如握手路由必须修改客户端，则单独明确跨端兼容契约与发布顺序，
   不把 Node.js 专有的 WebSocket 参数直接放进跨端客户端。
 - 开发、构建和测试继续使用 Bun；云端执行环境由 EdgeOne 的公开契约决定，不能假设
@@ -62,9 +69,28 @@ Agents 是后续验证的候选，不能把 Cloud Functions 的 WebSocket 支持
 ## 本次验证边界
 
 已读取官方文档、官方示例，并检查 npm 发布的 `edgeone@1.6.47` CLI 包及 registry integrity。
-已准备隔离的最小 Agent 验证程序。本地 `edgeone makers dev` 即使指定
-`--skip-env-sync --skip-ai-gateway-sync`，仍在启动前要求认证；当前未通过该步骤，
-因此没有 WebSocket、会话亲和、云端部署或性能通过记录。
+已实现 Cloud Functions / Agents 探测入口、独立构建和双会话三连接检查脚本。
+本地回调宿主的真实 WebSocket 检查通过，覆盖二进制完整性与关闭隔离；票据、延迟升级、
+容量和过期回归也通过。根工程 84 项测试、构建、类型检查和离线包检查通过，
+探测产物通过 CLI 配置校验。上述结果均不代表原生 EdgeOne 运行通过。
+
+本地 `edgeone makers dev` 即使指定
+`--skip-env-sync --skip-ai-gateway-sync`，仍在启动前要求认证。现已通过 Makers Token
+认证，并在不含 `agents/` 的独立临时工程启动 Cloud Functions 原生开发入口：
+
+- 首次 WebSocket 握手因 wrapper 动态加载 `ws` 失败而返回 500；独立探测产物已补充
+  此依赖及安装步骤，没有修改 CLI wrapper。
+- 补齐依赖后 listener WebSocket 握手成功，但同一 `Makers-Conversation-Id` 的 app
+  连接返回 404。生成代码将模块初始化包在逐请求处理函数内，连续普通请求也得到不同
+  `bootId`；模块内 Map 无法在这套本地 wrapper 中保留在线 listener。
+- 三连接检查明确失败。此结果描述 CLI 1.6.47 的本地行为，不外推为所有云端版本的行为；
+  单条 WebSocket 能升级也不代表 Relay 可用。
+
+含 Agents 的本地工程还必须关联 Makers 项目。Token 可读取项目列表，但创建测试项目
+返回 `FailedOperation: Zone is not active`，`DescribePagesZones` 返回空列表；已登录
+控制台的 Makers 站点名称显示 `-`，首页、设置和直接上传流程没有开通入口。控制台截图
+另有资源查询错误，尚待核对账号开通状态、权限及页面请求。未创建或部署云端项目，
+也没有 Agents 原生 WebSocket、会话亲和或性能通过记录。
 
 平台闭环通过后，再运行现有 `bun run smoke:relay wss://<host>/v1/relay`，并补充慢读、
 listener 存续、实例退出和重新会合测试。最终记录应分开说明本地运行、真实云端运行、

@@ -1,0 +1,8 @@
+{
+  "nodeVersion": "20",
+  "outputDirectory": "public",
+  "agents": {
+    "dir": "agents",
+    "timeout": 120
+  }
+}

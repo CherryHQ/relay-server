@@ -14,7 +14,8 @@
 已提供 [Docker / Caddy](deploy/docker/README.md)、[Cloudflare Tunnel](deploy/cloudflare-tunnel/README.md)
 及支持休眠恢复的 [Workers + Durable Objects](deploy/cloudflare/README.md)
 部署配置，验证范围见[部署记录](docs/deployment-status.md)。Vercel 暂缓。
-EdgeOne 按[无源站原生托管目标](docs/edgeone-native-hosting.md)验证平台能力，尚未支持部署。
+EdgeOne 已提供[原生能力探测工程](deploy/edgeone/README.md)，按[无源站托管目标](docs/edgeone-native-hosting.md)
+验证平台能力，尚未支持 Relay 部署。
 详见[客户端接入记录](docs/client-integration-status.md)和[R2 实现记录](docs/r2-implementation-status.md)。
 桌面与 App 草稿使用未发布的本地包，准备步骤见[客户端草稿联调](docs/client-preview.md)。
 
