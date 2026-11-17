@@ -4,6 +4,18 @@
 本地工具使用 Bun 1.4.4；Wrangler/Miniflare 使用 Node.js 24，线上执行环境是 Cloudflare workerd。
 和 [Cloudflare Tunnel](../cloudflare-tunnel/README.md) 是两种部署方式。
 
+## 一键部署
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CherryHQ/relay-server)
+
+登录 Cloudflare 并关联 GitHub，按页面提示创建自己的仓库和 Worker，然后部署。
+Cloudflare 会根据仓库根目录的 [`wrangler.jsonc`](../../wrangler.jsonc) 创建并绑定 Durable Object；
+构建命令使用 `bun run build`，部署命令使用 `bun run deploy`，根目录保持 `/`。
+部署完成后，将 `https://<Worker 名称>.<账户子域>.workers.dev` 填入客户端 Relay 地址。
+
+按钮导入整个仓库，以包含 Worker 依赖的共享包；不要只导入 `deploy/cloudflare/` 子目录。
+自动部署流程见 [Cloudflare 官方说明](https://developers.cloudflare.com/workers/platform/deploy-buttons/)。
+
 ## 启动与部署
 
 在仓库根目录执行：
@@ -20,7 +32,7 @@ bun run smoke:relay ws://localhost:8787/v1/relay
 ```
 
 `bun run build:cloudflare` 只生成 dry-run 产物，不创建线上资源。
-使用自己的 Cloudflare 账号部署前，修改 `wrangler.jsonc` 的 `name`，然后：
+使用自己的 Cloudflare 账号部署前，修改根目录 [`wrangler.jsonc`](../../wrangler.jsonc) 的 `name`，然后：
 
 ```sh
 bun x wrangler login

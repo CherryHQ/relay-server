@@ -10,6 +10,7 @@ relay-server/
 ├── package.json / bun.lock / .bun-version
 ├── tsconfig.base.json / tsconfig.tools.json / tsconfig.core.json / tsconfig.runtime.json
 ├── bunfig.toml / biome.json
+├── wrangler.jsonc              # Workers/DO 配置，供一键部署与 Wrangler 自动发现
 ├── packages/
 │   ├── relay-protocol/
 │   │   ├── src/                  # frame、ready、rendezvous、limits 及可选 proof 编码
@@ -37,7 +38,7 @@ relay-server/
 ├── deploy/
 │   ├── docker/                   # Dockerfile、Compose、Caddy、环境示例及说明
 │   ├── cloudflare-tunnel/        # connector Compose、secret 挂载及说明
-│   └── cloudflare/               # Workers/DO Wrangler 配置与部署说明
+│   └── cloudflare/               # Workers/DO 部署说明
 ├── tests/
 │   ├── core/                     # 会话、计数、预算和配置
 │   ├── bun/                      # 真实 runtime、WSS/Noise、入口和故障用例
