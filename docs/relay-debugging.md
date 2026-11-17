@@ -16,7 +16,7 @@
 
 ```sh
 mkdir -p .context
-bun x wrangler tail --config deploy/cloudflare/wrangler.jsonc --format json > .context/relay-worker-tail.jsonl
+bun x wrangler tail --format json > .context/relay-worker-tail.jsonl
 ```
 
 Wrangler 配置的 Worker 名称和环境必须与手机/桌面的 origin 一致；命名环境加 `--env ENV`。

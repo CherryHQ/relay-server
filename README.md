@@ -3,6 +3,11 @@
 为 **Cherry Studio 桌面端与 Cherry Studio App** 提供 WSS 中转。两端主动连接同一 Relay，
 复用现有 MessageStream、Noise、设备配对与业务协议。
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CherryHQ/relay-server)
+
+点击按钮，将 Relay 部署到自己的 Cloudflare Workers + Durable Objects，无需自建服务器。
+部署后使用 `https://<Worker 名称>.<账户子域>.workers.dev` 连接，详见[Cloudflare 部署说明](deploy/cloudflare/README.md#一键部署)。
+
 首版只负责 **会话会合、密文转发、背压限流和断线清理**。
 设备身份、配对批准和业务权限由端点处理；runtime 独立于用户凭证服务。
 基础运行无需账号登录、设备登记库、独立管理后端或计费系统。
